@@ -6,10 +6,6 @@ if (!process.env.GIST_TOKEN) {
   process.exit(1)
 }
 
-const gistApi = getGistApi({
-  token: process.env.GIST_TOKEN
-})
-
 const main = async () => {
   console.log('Creating database...')
 

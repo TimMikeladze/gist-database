@@ -3,7 +3,7 @@ import { getGistApi } from './gistApi'
 
 export interface GistDatabaseOptions {
   description?: string
-  gistId?: string
+  id?: string
   public?: boolean
   token: string
 }
@@ -77,9 +77,9 @@ export class GistDatabase {
 
   public async init() {
     let gist
-    if (!this.options.gistId) {
+    if (!this.options.id) {
       gist = await GistDatabase.createDatabaseRoot(this.options)
-      this.options.gistId = gist.id
+      this.options.id = gist.id
       this.isNewDatabase = true
     } else {
       gist = await this.getRoot()
@@ -87,14 +87,14 @@ export class GistDatabase {
         throw new Error('gist not found')
       }
       this.isNewDatabase = false
-      this.options.gistId = gist.id
+      this.options.id = gist.id
     }
     return gist
   }
 
   public async getRoot(): Promise<GistResponse> {
     return (await this.gistApi(
-      `/gists/${this.options.gistId}`,
+      `/gists/${this.options.id}`,
       'GET'
     )) as GistResponse
   }
@@ -234,7 +234,7 @@ export class GistDatabase {
         }
       })
 
-      await this.gistApi(`/gists/${this.options.gistId}`, 'PATCH', {
+      await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
           'database.json': {
             content: JSON.stringify(newDatabase)
@@ -264,7 +264,7 @@ export class GistDatabase {
 
     const newDatabase = GistDatabase.del(database, path)
 
-    await this.gistApi(`/gists/${this.options.gistId}`, 'PATCH', {
+    await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
       files: {
         'database.json': {
           content: JSON.stringify(newDatabase)
@@ -287,7 +287,7 @@ export class GistDatabase {
       })
     )
 
-    await this.gistApi(`/gists/${this.options.gistId}`, 'DELETE')
+    await this.gistApi(`/gists/${this.options.id}`, 'DELETE')
   }
 
   public static get<T = any>(obj: T, path: string[]): T {
