@@ -1,8 +1,5 @@
-import crypto from 'crypto'
 import isPlainObject from 'is-plain-obj'
-import fetch from 'node-fetch'
 import { getGistApi } from './gistApi'
-import { compress, decompress } from 'compress-json'
 
 export interface GistDatabaseOptions {
   description?: string
@@ -319,43 +316,10 @@ export class GistDatabase {
   }
 
   public static toJSON(value: any) {
-    return JSON.stringify(compress(value))
+    return JSON.stringify(value)
   }
 
   public static fromJSON(value: any) {
-    return JSON.parse(decompress(value))
+    return JSON.parse(value)
   }
-}
-// https://gist.github.com/vlucas/2bd40f62d20c1d49237a109d491974eb
-
-const IV_LENGTH = 16 // For AES, this is always 16
-
-const encrypt = (text: string, encryptionKey: string) => {
-  const iv = crypto.randomBytes(IV_LENGTH)
-  const cipher = crypto.createCipheriv(
-    'aes-256-cbc',
-    Buffer.from(encryptionKey),
-    iv
-  )
-  let encrypted = cipher.update(text)
-
-  encrypted = Buffer.concat([encrypted, cipher.final()])
-
-  return iv.toString('hex') + ':' + encrypted.toString('hex')
-}
-
-const decrypt = (text: string, encryptionKey: string) => {
-  const textParts = text.split(':')
-  const iv = Buffer.from(textParts.shift(), 'hex')
-  const encryptedText = Buffer.from(textParts.join(':'), 'hex')
-  const decipher = crypto.createDecipheriv(
-    'aes-256-cbc',
-    Buffer.from(encryptionKey),
-    iv
-  )
-  let decrypted = decipher.update(encryptedText)
-
-  decrypted = Buffer.concat([decrypted, decipher.final()])
-
-  return decrypted.toString()
 }

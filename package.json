@@ -80,11 +80,8 @@
     "typescript": "4.9.4"
   },
   "dependencies": {
-    "compress-json": "2.1.2",
-    "crypto": "1.0.1",
     "is-plain-obj": "4.1.0",
-    "node-fetch": "3.3.0",
-    "zod": "3.20.2"
+    "node-fetch": "3.3.0"
   },
   "resolutions": {}
 }
