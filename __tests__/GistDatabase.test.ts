@@ -15,7 +15,9 @@ describe('GistDatabase', () => {
   })
   it('sets and gets', async () => {
     const res = await db.set('test_one', {
-      name: 'test_one'
+      value: {
+        name: 'test_one'
+      }
     })
     expect(res).toMatchObject({
       value: {
@@ -34,7 +36,9 @@ describe('GistDatabase', () => {
   })
   it('deletes', async () => {
     await db.set('test_two', {
-      name: 'test_two'
+      value: {
+        name: 'test_two'
+      }
     })
     expect(await db.get('test_two')).toEqual({
       value: {
@@ -47,13 +51,10 @@ describe('GistDatabase', () => {
     expect(await db.get('test_two')).toBeUndefined()
   })
   it('key with a ttl gets deleted', async () => {
-    const res = await db.set(
-      'test_ttl',
-      {
-        name: 'test_ttl'
-      },
-      250
-    )
+    const res = await db.set('test_ttl', {
+      value: {},
+      ttl: 250
+    })
 
     await sleep(500)
 

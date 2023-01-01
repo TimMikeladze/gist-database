@@ -2,7 +2,7 @@
 
 Turn [gist](https://gist.github.com/) into your personal key/value data-store.
 
-- 🚀 [Example repo]() of a todo list build with Next.js.
+- 🚀 [Example repo](https://github.com/TimMikeladze/gist-database-nextjs) of a todo list build with Next.js.
 - 🔗 [Demo app]() deployed with Vercel.
 
 ```console
@@ -67,7 +67,9 @@ const db = new GistDatabase({
 })
 
 const res = await db.set('key', {
-  hello: 'world'
+  value: {
+    hello: 'world'
+  }
 })
 
 const found = await db.get('key')
@@ -83,8 +85,10 @@ const found = await db.get('key')
  **/
 
 const updated = await db.set('key', {
-  hello: 'world',
-  foo: 'bar'
+  value: {
+    hello: 'world',
+    foo: 'bar'
+  }
 })
 
 /**
@@ -102,13 +106,10 @@ await db.has('key') // true
 
 await db.delete('key') // void
 
-await db.set(
-  'key_with_ttl',
-  {
-    description: "I'll expire soon and be deleted upon retrieval"
-  },
-  1000
-)
+await db.set('key_with_ttl', {
+  ttl: 1000, // 1 second
+  description: "I'll expire soon and be deleted upon retrieval"
+})
 
 // Get or delete many keys at once. `undefined` will be returned for keys that don't exist.
 

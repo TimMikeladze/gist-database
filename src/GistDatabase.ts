@@ -185,10 +185,13 @@ export class GistDatabase {
 
   public async set<T = any>(
     key: string | string[],
-    value: T,
-    ttl?: number,
-    description?: string
+    args: {
+      description?: string
+      ttl?: number
+      value?: T
+    }
   ): Promise<Doc<T>> {
+    const { description, ttl, value = {} } = args
     if (!isPlainObject(value)) {
       throw new Error('value must be a plain javascript object')
     }
@@ -244,7 +247,7 @@ export class GistDatabase {
     }
 
     return {
-      value,
+      value: value as T,
       gist,
       id: gist.id
     }
