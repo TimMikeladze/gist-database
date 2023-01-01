@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import isPlainObject from 'is-plain-obj'
 import fetch from 'node-fetch'
+import { getGistApi } from './gistApi'
 
 export interface GistDatabaseOptions {
   description?: string
@@ -17,6 +18,7 @@ export type GistResponse = {
     }
   >
   id: string
+  url: string
 }
 
 export type Doc = {
@@ -35,49 +37,6 @@ export type DocRef = {
     ttl: number
   }
 }
-
-export const getGistApi =
-  (options: { encryptionKey?: string; token: string }) =>
-  async (
-    path: string,
-    method: 'POST' | 'GET' | 'PATCH' | 'DELETE',
-    body: Record<string, any> = {}
-  ) => {
-    const res = await fetch(`https://api.github.com${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${options.token}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28'
-      },
-      body:
-        method === 'GET'
-          ? undefined
-          : options.encryptionKey
-          ? encrypt(JSON.stringify(body), options.encryptionKey)
-          : JSON.stringify(body)
-    })
-
-    if (res.ok) {
-      try {
-        const json = (await res.json()) as {
-          files: Record<string, any>
-        }
-        const fileKeys = Object.keys(json.files)
-        fileKeys.forEach((key) => {
-          const file = options.encryptionKey
-            ? decrypt(fileKeys[key], options.encryptionKey)
-            : json.files[key]
-          json.files[key] = file
-        })
-        return json
-      } catch (err) {
-        return {}
-      }
-    } else {
-      return {}
-    }
-  }
 
 export const defaultOptions: Partial<GistDatabaseOptions> = {
   public: false
@@ -98,18 +57,28 @@ export class GistDatabase {
     })
   }
 
+  public static createDatabaseRoot(
+    options: GistDatabaseOptions
+  ): Promise<GistResponse> {
+    const gistApi = getGistApi({
+      token: options.token
+    })
+
+    return gistApi('/gists', 'POST', {
+      description: options.description,
+      public: options.public,
+      files: {
+        'database.json': {
+          content: JSON.stringify({})
+        }
+      }
+    }) as Promise<GistResponse>
+  }
+
   public async init() {
     let gist
     if (!this.options.gistId) {
-      gist = await this.gistApi('/gists', 'POST', {
-        description: this.options.description,
-        public: this.options.public,
-        files: {
-          'database.json': {
-            content: JSON.stringify({})
-          }
-        }
-      })
+      gist = await GistDatabase.createDatabaseRoot(this.options)
       this.options.gistId = gist.id
       this.isNewDatabase = true
     } else {

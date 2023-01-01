@@ -22,16 +22,18 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.module.js",
   "unpkg": "./dist/index.umd.js",
+  "bin": "./dist/cli.modern.js",
   "scripts": {
-    "dev": "microbundle watch src/{index}.ts --target node -f modern",
-    "build": "rm -rf dist && microbundle src/{index}.ts",
+    "dev": "microbundle watch src/{index,cli}.ts --target node -f modern",
+    "build": "rm -rf dist && microbundle src/{index,cli}.ts",
     "lint": "eslint --fix \"{src,__tests__}/**/*.+(ts|tsx|js|jsx)\" && prettier --write .",
     "test": "yarn node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "test:ci": "yarn test --ci --coverage",
     "prepublishOnly": "yarn type-check && yarn lint && yarn test && yarn build",
     "type-check": "tsc",
     "release": "release-it",
-    "commit": "commit-it"
+    "commit": "commit-it",
+    "cli": "yarn build && node dist/cli.modern.js"
   },
   "release-it": {
     "git": {
