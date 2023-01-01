@@ -63,6 +63,19 @@ describe('GistDatabase', () => {
 
     expect(found).toEqual({})
   }, 10000)
+  it('gets and deletes many', async () => {
+    await db.set('test_many_one', {})
+    await db.set('test_many_two', {})
+
+    expect(await db.getMany(['test_many_one', 'test_many_two'])).toHaveLength(2)
+
+    await db.deleteMany(['test_many_one', 'test_many_two'])
+
+    expect(await db.getMany(['test_many_one', 'test_many_two'])).toEqual([
+      undefined,
+      undefined
+    ])
+  }, 10000)
 })
 
 it('get and set and del', () => {

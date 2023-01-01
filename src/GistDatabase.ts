@@ -19,7 +19,16 @@ export type GistResponse = {
   id: string
 }
 
-export type DocumentRef = {
+export type Doc = {
+  gist: {
+    [key: string]: any
+    id: string
+  }
+  id: string
+  value: any
+}
+
+export type DocRef = {
   id: string
   ttl: {
     createdAt: number
@@ -121,18 +130,14 @@ export class GistDatabase {
     )) as GistResponse
   }
 
-  public async get(key: string | string[]): Promise<{
-    gist: any
-    id: string
-    value: Record<string, any>
-  }> {
+  public async get(key: string | string[]): Promise<Doc> {
     const path = Array.isArray(key) ? key : [key]
 
     const root = await this.getRoot()
 
     const database = JSON.parse(root.files['database.json'].content)
 
-    const found: DocumentRef = get(database, path)
+    const found: DocRef = get(database, path)
 
     if (!found) {
       return undefined
@@ -152,7 +157,14 @@ export class GistDatabase {
       return undefined
     }
 
-    const value = JSON.parse(gist.files[formatPath(path)].content)
+    const value = gist.files?.[formatPath(path)]
+      ? JSON.parse(gist.files?.[formatPath(path)].content)
+      : null
+
+    if (!value) {
+      return undefined
+    }
+
     const ttl = JSON.parse(gist.files['ttl.json'].content)
 
     if (ttl.ttl && ttlIsExpired(ttl)) {
@@ -167,7 +179,11 @@ export class GistDatabase {
     }
   }
 
-  public async has(key: string | string[]) {
+  public getMany(keys: string[]): Promise<Doc[]> {
+    return Promise.all(keys.map((key) => this.get(key)))
+  }
+
+  public async has(key: string | string[]): Promise<boolean> {
     return (await this.get(key)) !== undefined
   }
 
@@ -176,11 +192,7 @@ export class GistDatabase {
     value: any,
     ttl?: number,
     description?: string
-  ): Promise<{
-    gist: any
-    id: string
-    value: Record<string, any>
-  }> {
+  ): Promise<Doc> {
     if (!isPlainObject(value)) {
       throw new Error('value must be a plain javascript object')
     }
@@ -256,7 +268,7 @@ export class GistDatabase {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
     const database = JSON.parse(root.files['database.json'].content)
-    const found: DocumentRef = get(database, path)
+    const found: DocRef = get(database, path)
 
     if (!found) {
       return undefined
@@ -273,6 +285,10 @@ export class GistDatabase {
         }
       }
     })
+  }
+
+  public async deleteMany(keys: string[]) {
+    return Promise.all(keys.map((key) => this.delete(key)))
   }
 
   public async destroy() {
