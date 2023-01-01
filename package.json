@@ -31,7 +31,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.module.js",
   "unpkg": "./dist/index.umd.js",
-  "bin": "./dist/cli.modern.js",
+  "bin": "./dist/cli.module.js",
   "scripts": {
     "dev": "microbundle watch src/{index,cli}.ts --target node -f modern",
     "build": "rm -rf dist && microbundle src/{index,cli}.ts",

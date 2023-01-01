@@ -1,9 +1,8 @@
 # 🗄️ Gist Database
 
-Turn [gist](https://gist.github.com/) into your personal key/value data-store.
+✨ Transform [gist](https://gist.github.com/) into your personal key/value database.
 
-- 🚀 [Example repo](https://github.com/TimMikeladze/gist-database-nextjs) of a todo list build with Next.js.
-- 🔗 [Demo app]() deployed with Vercel.
+🚀 [Example repo](https://github.com/TimMikeladze/gist-database-nextjs) of a todo list build with Next.js.
 
 ```console
 npm install gist-database
