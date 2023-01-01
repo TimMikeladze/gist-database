@@ -13,6 +13,7 @@ export type GistResponse = {
     string,
     {
       content: string
+      size: number
     }
   >
   id: string
@@ -43,6 +44,7 @@ export const defaultOptions: Partial<GistDatabaseOptions> = {
 export class GistDatabase {
   private readonly options: GistDatabaseOptions
   public readonly gistApi: ReturnType<typeof getGistApi>
+  public static MAX_FILE_SIZE_BYTES = 999999 // 0.99mb
   public isNewDatabase: boolean
 
   constructor(options: GistDatabaseOptions) {
@@ -124,15 +126,15 @@ export class GistDatabase {
       return undefined
     }
 
-    const value = gist.files?.[GistDatabase.formatPath(path)]
+    const data = gist.files?.[GistDatabase.formatPath(path)]
       ? JSON.parse(gist.files?.[GistDatabase.formatPath(path)].content)
       : null
 
-    if (!value) {
+    if (!data) {
       return undefined
     }
 
-    const ttl = JSON.parse(gist.files['ttl.json'].content)
+    const ttl = data.ttl
 
     if (ttl.ttl && GistDatabase.ttlIsExpired(ttl)) {
       await this.gistApi(`/gists/${found.id}`, 'DELETE')
@@ -142,7 +144,7 @@ export class GistDatabase {
     return {
       gist,
       id: found.id,
-      value
+      value: data.value
     }
   }
 
@@ -152,6 +154,33 @@ export class GistDatabase {
 
   public async has(key: string | string[]): Promise<boolean> {
     return (await this.get(key)) !== undefined
+  }
+
+  public static async pack(path, value, { ttl, createdAt }) {
+    const data = {
+      value,
+      ttl: {
+        ttl,
+        createdAt
+      }
+    }
+
+    // eslint-disable-next-line no-undef
+    const size = new Blob([JSON.stringify(data)]).size
+
+    if (size > GistDatabase.MAX_FILE_SIZE_BYTES) {
+      throw new Error('gist size is too large')
+    }
+
+    // TODO break up into multiple files if size is too large
+
+    const files = {
+      [GistDatabase.formatPath(path)]: {
+        content: JSON.stringify(data)
+      }
+    }
+
+    return files
   }
 
   public async set<T = any>(
@@ -174,35 +203,25 @@ export class GistDatabase {
     let gist: GistResponse
 
     if (id) {
+      const files = await GistDatabase.pack(path, value, {
+        ttl,
+        createdAt: Date.now()
+      })
+
       gist = (await this.gistApi(`/gists/${id}`, 'PATCH', {
         description,
-        files: {
-          [GistDatabase.formatPath(path)]: {
-            content: JSON.stringify(value)
-          },
-          'ttl.json': {
-            content: JSON.stringify({
-              createdAt: Date.now(),
-              ttl
-            })
-          }
-        }
+        files
       })) as GistResponse
     } else {
+      const files = await GistDatabase.pack(path, value, {
+        ttl,
+        createdAt: Date.now()
+      })
+
       gist = (await this.gistApi('/gists', 'POST', {
         description,
         public: this.options.public,
-        files: {
-          [GistDatabase.formatPath(path)]: {
-            content: JSON.stringify(value)
-          },
-          'ttl.json': {
-            content: JSON.stringify({
-              createdAt: Date.now(),
-              ttl
-            })
-          }
-        }
+        files
       })) as GistResponse
     }
 
@@ -311,8 +330,8 @@ export class GistDatabase {
     return ttl.ttl && Date.now() - ttl.createdAt > ttl.ttl
   }
 
-  public static formatPath(path: string[]) {
-    return (Array.isArray(path) ? path.join('.') : path) + '.json'
+  public static formatPath(path: string[], index: string = '0') {
+    return (Array.isArray(path) ? path.join('.') : path) + '_' + index + '.json'
   }
 
   public static toJSON(value: any) {
