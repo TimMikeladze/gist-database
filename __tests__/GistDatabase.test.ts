@@ -1,4 +1,4 @@
-import { get, set, GistDatabase, del, MinimalGist } from '../src'
+import { get, set, GistDatabase, del, GistResponse } from '../src'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -59,7 +59,7 @@ describe('GistDatabase', () => {
 
     expect(await db.get('test_ttl')).toBeUndefined()
 
-    const found = (await db.gistApi(`/gists/${res.id}`, 'GET')) as MinimalGist
+    const found = (await db.gistApi(`/gists/${res.id}`, 'GET')) as GistResponse
 
     expect(found).toEqual({})
   }, 10000)

@@ -9,7 +9,7 @@ export interface GistDatabaseOptions {
   token: string
 }
 
-export type MinimalGist = {
+export type GistResponse = {
   files: Record<
     string,
     {
@@ -17,6 +17,14 @@ export type MinimalGist = {
     }
   >
   id: string
+}
+
+export type DocumentRef = {
+  id: string
+  ttl: {
+    createdAt: number
+    ttl: number
+  }
 }
 
 export const getGistApi =
@@ -106,11 +114,11 @@ export class GistDatabase {
     return gist
   }
 
-  public async getRoot(): Promise<MinimalGist> {
+  public async getRoot(): Promise<GistResponse> {
     return (await this.gistApi(
       `/gists/${this.options.gistId}`,
       'GET'
-    )) as MinimalGist
+    )) as GistResponse
   }
 
   public async get(key: string | string[]): Promise<{
@@ -124,7 +132,7 @@ export class GistDatabase {
 
     const database = JSON.parse(root.files['database.json'].content)
 
-    const found = get(database, path)
+    const found: DocumentRef = get(database, path)
 
     if (!found) {
       return undefined
@@ -138,13 +146,13 @@ export class GistDatabase {
     const gist = (await this.gistApi(
       `/gists/${found.id}`,
       'GET'
-    )) as MinimalGist
+    )) as GistResponse
 
     if (!gist) {
       return undefined
     }
 
-    const value = JSON.parse(gist.files['value.json'].content)
+    const value = JSON.parse(gist.files[formatPath(path)].content)
     const ttl = JSON.parse(gist.files['ttl.json'].content)
 
     if (ttl.ttl && ttlIsExpired(ttl)) {
@@ -184,12 +192,13 @@ export class GistDatabase {
 
     const id = get(database, path)
 
-    let gist: MinimalGist
+    let gist: GistResponse
 
     if (id) {
       gist = (await this.gistApi(`/gists/${id}`, 'PATCH', {
+        description,
         files: {
-          'value.json': {
+          [formatPath(path)]: {
             content: JSON.stringify(value)
           },
           'ttl.json': {
@@ -199,13 +208,13 @@ export class GistDatabase {
             })
           }
         }
-      })) as MinimalGist
+      })) as GistResponse
     } else {
       gist = (await this.gistApi('/gists', 'POST', {
         description,
         public: this.options.public,
         files: {
-          'value.json': {
+          [formatPath(path)]: {
             content: JSON.stringify(value)
           },
           'ttl.json': {
@@ -215,7 +224,7 @@ export class GistDatabase {
             })
           }
         }
-      })) as MinimalGist
+      })) as GistResponse
     }
 
     if (!id || ttl) {
@@ -247,11 +256,13 @@ export class GistDatabase {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
     const database = JSON.parse(root.files['database.json'].content)
-    const id = get(database, path)
-    if (!id) {
+    const found: DocumentRef = get(database, path)
+
+    if (!found) {
       return undefined
     }
-    await this.gistApi(`/gists/${id}`, 'DELETE')
+
+    await this.gistApi(`/gists/${found.id}`, 'DELETE')
 
     const newDatabase = del(database, path)
 
@@ -265,6 +276,15 @@ export class GistDatabase {
   }
 
   public async destroy() {
+    const root = await this.getRoot()
+    const database = JSON.parse(root.files['database.json'].content)
+
+    await Promise.allSettled(
+      Object.keys(database).map(async (key) => {
+        await this.gistApi(`/gists/${database[key].id}`, 'DELETE')
+      })
+    )
+
     await this.gistApi(`/gists/${this.options.gistId}`, 'DELETE')
   }
 }
@@ -307,6 +327,10 @@ export const del = (obj: any, path: string[]) => {
 
 export const ttlIsExpired = (ttl: { createdAt: number; ttl: number }) => {
   return ttl && Date.now() >= Number(ttl.createdAt) + Number(ttl.ttl)
+}
+
+export const formatPath = (path: string | string[]) => {
+  return (Array.isArray(path) ? path.join('.') : path) + '.json'
 }
 
 // https://gist.github.com/vlucas/2bd40f62d20c1d49237a109d491974eb
