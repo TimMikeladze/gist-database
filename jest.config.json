@@ -1,0 +1,16 @@
+{
+  "preset": "ts-jest/presets/default-esm",
+  "testEnvironment": "node",
+  "testPathIgnorePatterns": ["<rootDir>/node_modules/"],
+  "setupFiles": ["dotenv/config"],
+  "testMatch": ["**/?(*.)+(spec|test).[jt]s?(x)"],
+  "transform": {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        "isolatedModules": true,
+        "useESM": true
+      }
+    ]
+  }
+}

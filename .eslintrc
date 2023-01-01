@@ -1,0 +1,19 @@
+{
+  "env": {
+    "es2021": true,
+    "node": true,
+    "jest": true
+  },
+  "extends": ["standard", "plugin:typescript-sort-keys/recommended"],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 13,
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "indent": "off",
+    "space-before-function-paren": "off",
+    "no-unused-vars": "warn"
+  }
+}

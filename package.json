@@ -1,0 +1,87 @@
+{
+  "name": "gist-database",
+  "version": "0.0.0",
+  "description": "",
+  "author": "Tim Mikeladze <tim.mikeladze@gmail.com>",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TimMikeladze/gist-database.git"
+  },
+  "license": "MIT",
+  "files": [
+    "./dist"
+  ],
+  "source": "src/index.ts",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    "require": "./dist/index.cjs",
+    "default": "./dist/index.modern.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.module.js",
+  "unpkg": "./dist/index.umd.js",
+  "scripts": {
+    "dev": "microbundle watch src/{index}.ts --target node -f modern",
+    "build": "rm -rf dist && microbundle src/{index}.ts",
+    "lint": "eslint --fix \"{src,__tests__}/**/*.+(ts|tsx|js|jsx)\" && prettier --write .",
+    "test": "yarn node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
+    "test:ci": "yarn test --ci --coverage",
+    "prepublishOnly": "yarn type-check && yarn lint && yarn test && yarn build",
+    "type-check": "tsc",
+    "release": "release-it",
+    "commit": "commit-it"
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "🔖 | v${version}"
+    },
+    "github": {
+      "release": true
+    },
+    "npm": {
+      "publish": false
+    }
+  },
+  "lint-staged": {
+    "**/*.{ts,js,jsx,tsx}": "eslint --fix",
+    "*": "prettier --write"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "devDependencies": {
+    "@types/jest": "29.2.4",
+    "@types/node": "18.11.13",
+    "@types/object-hash": "3.0.2",
+    "@typescript-eslint/eslint-plugin": "5.46.1",
+    "@typescript-eslint/parser": "5.46.1",
+    "commit-it": "0.0.7",
+    "dotenv": "16.0.3",
+    "eslint": "8.29.0",
+    "eslint-config-standard": "17.0.0",
+    "eslint-plugin-import": "2.26.0",
+    "eslint-plugin-n": "15.6.0",
+    "eslint-plugin-node": "11.1.0",
+    "eslint-plugin-promise": "6.1.1",
+    "eslint-plugin-typescript-sort-keys": "2.1.0",
+    "husky": "8.0.2",
+    "jest": "29.3.1",
+    "lint-staged": "13.1.0",
+    "microbundle": "0.15.1",
+    "prettier": "2.8.1",
+    "release-it": "15.5.1",
+    "ts-jest": "29.0.3",
+    "typescript": "4.9.4"
+  },
+  "dependencies": {
+    "crypto": "1.0.1",
+    "is-plain-obj": "4.1.0",
+    "node-fetch": "3.3.0",
+    "zod": "3.20.2"
+  },
+  "resolutions": {}
+}

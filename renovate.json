@@ -1,0 +1,15 @@
+{
+  "extends": ["config:base"],
+  "stabilityDays": 3,
+  "timezone": "America/Los_Angeles",
+  "schedule": ["on the first day of the month"],
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    }
+  ],
+  "ignoreDeps": []
+}
