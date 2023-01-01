@@ -88,8 +88,9 @@
     "typescript": "4.9.4"
   },
   "dependencies": {
-    "is-plain-obj": "4.1.0",
-    "cross-fetch": "3.1.5"
+    "buffer": "6.0.3",
+    "cross-fetch": "3.1.5",
+    "is-plain-obj": "4.1.0"
   },
   "resolutions": {
     "json5": ">=2.2.2"

@@ -1,5 +1,6 @@
 import isPlainObject from 'is-plain-obj'
 import { getGistApi } from './gistApi'
+import { Blob } from 'buffer'
 
 export interface GistDatabaseOptions {
   description?: string
