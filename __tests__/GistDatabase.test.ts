@@ -1,20 +1,17 @@
-import { get, set, GistDatabase, del } from '../src'
+import { get, set, GistDatabase, del, MinimalGist } from '../src'
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('GistDatabase', () => {
   let db: GistDatabase
-  beforeAll(() => {
+  beforeAll(async () => {
     db = new GistDatabase({
       token: process.env.GITHUB_TOKEN
     })
+    await db.init()
   })
   afterAll(async () => {
     await db.destroy()
-  })
-  it('initializes', async () => {
-    expect(await db.init()).toMatchObject({
-      id: expect.any(String)
-    })
-    expect(db).toBeDefined()
   })
   it('sets and gets', async () => {
     const res = await db.set('test_one', {
@@ -49,6 +46,23 @@ describe('GistDatabase', () => {
     await db.delete('test_two')
     expect(await db.get('test_two')).toBeUndefined()
   })
+  it('key with a ttl gets deleted', async () => {
+    const res = await db.set(
+      'test_ttl',
+      {
+        name: 'test_ttl'
+      },
+      500
+    )
+
+    await sleep(1000)
+
+    expect(await db.get('test_ttl')).toBeUndefined()
+
+    const found = (await db.gistApi(`/gists/${res.id}`, 'GET')) as MinimalGist
+
+    expect(found).toEqual({})
+  }, 10000)
 })
 
 it('get and set and del', () => {

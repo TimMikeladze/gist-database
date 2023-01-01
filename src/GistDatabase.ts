@@ -68,7 +68,7 @@ export const defaultOptions: Partial<GistDatabaseOptions> = {
 
 export class GistDatabase {
   private options: GistDatabaseOptions
-  private readonly gistApi: ReturnType<typeof getGistApi>
+  public readonly gistApi: ReturnType<typeof getGistApi>
   public isNewDatabase: boolean
 
   constructor(options: GistDatabaseOptions) {
@@ -113,10 +113,7 @@ export class GistDatabase {
     )) as MinimalGist
   }
 
-  public async get(
-    key: string | string[],
-    direct: boolean = false
-  ): Promise<{
+  public async get(key: string | string[]): Promise<{
     gist: any
     id: string
     value: Record<string, any>
@@ -127,22 +124,38 @@ export class GistDatabase {
 
     const database = JSON.parse(root.files['database.json'].content)
 
-    const id = get(database, path)
+    const found = get(database, path)
 
-    if (!id) {
+    if (!found) {
       return undefined
     }
 
-    const gist = (await this.gistApi(`/gists/${id}`, 'GET')) as MinimalGist
+    if (found.ttl.ttl && ttlIsExpired(found.ttl)) {
+      await this.gistApi(`/gists/${found.id}`, 'DELETE')
+      return undefined
+    }
+
+    const gist = (await this.gistApi(
+      `/gists/${found.id}`,
+      'GET'
+    )) as MinimalGist
 
     if (!gist) {
       return undefined
     }
 
+    const value = JSON.parse(gist.files['value.json'].content)
+    const ttl = JSON.parse(gist.files['ttl.json'].content)
+
+    if (ttl.ttl && ttlIsExpired(ttl)) {
+      await this.gistApi(`/gists/${found.id}`, 'DELETE')
+      return undefined
+    }
+
     return {
       gist,
-      id,
-      value: JSON.parse(gist.files['value.json'].content)
+      id: found.id,
+      value
     }
   }
 
@@ -178,6 +191,12 @@ export class GistDatabase {
         files: {
           'value.json': {
             content: JSON.stringify(value)
+          },
+          'ttl.json': {
+            content: JSON.stringify({
+              createdAt: Date.now(),
+              ttl
+            })
           }
         }
       })) as MinimalGist
@@ -188,13 +207,26 @@ export class GistDatabase {
         files: {
           'value.json': {
             content: JSON.stringify(value)
+          },
+          'ttl.json': {
+            content: JSON.stringify({
+              createdAt: Date.now(),
+              ttl
+            })
           }
         }
       })) as MinimalGist
     }
 
-    if (!id) {
-      const newDatabase = set(database, path, gist.id)
+    if (!id || ttl) {
+      const newDatabase = set(database, path, {
+        id: gist.id,
+        ttl: {
+          ...get(database, [...path, 'ttl']),
+          ttl
+        }
+      })
+
       await this.gistApi(`/gists/${this.options.gistId}`, 'PATCH', {
         files: {
           'database.json': {
@@ -271,6 +303,10 @@ export const del = (obj: any, path: string[]) => {
     ...obj,
     [key]: del(obj[key], rest)
   }
+}
+
+export const ttlIsExpired = (ttl: { createdAt: number; ttl: number }) => {
+  return ttl && Date.now() >= Number(ttl.createdAt) + Number(ttl.ttl)
 }
 
 // https://gist.github.com/vlucas/2bd40f62d20c1d49237a109d491974eb
