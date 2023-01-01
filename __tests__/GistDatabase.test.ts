@@ -6,7 +6,7 @@ describe('GistDatabase', () => {
   let db: GistDatabase
   beforeAll(async () => {
     db = new GistDatabase({
-      token: process.env.GITHUB_TOKEN
+      token: process.env.GIST_TOKEN
     })
     await db.init()
   })

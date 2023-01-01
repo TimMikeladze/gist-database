@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
 
     steps:
       - name: Checkout repository
