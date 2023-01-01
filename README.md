@@ -2,8 +2,6 @@
 
 ✨ Transform [gist](https://gist.github.com/) into your personal key/value database.
 
-🚀 [Example repo](https://github.com/TimMikeladze/gist-database-nextjs) of a todo list build with Next.js.
-
 ```console
 npm install gist-database
 
@@ -35,13 +33,13 @@ This package comes with a cli command to help you get started.
 In your terminal run the following command:
 
 ```console
-GIST_TOKEN="xxxxx" npx gist-database
+GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js
 
 # or for a public gist
-GIST_TOKEN="xxxxx" npx gist-database public
+GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js public
 
 # or for a public gist with a description
-GIST_TOKEN="xxxxx" npx gist-database public "My awesome database"
+GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js public "My awesome database"
 ```
 
 If successful, you should see output similar to:
@@ -124,4 +122,4 @@ await db.destroy()
 
 1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose. If it's important, use the proper database solution for your problem.
 1. This is not intended for **high write** scenarios. You will be rate limited by the GitHub API. This is package is intended for **low write**, **low concurrency** scenarios.
-1. The maximum size of a provided object is approximately 0.99 mb. This is also the maximum size of the main database gist. In the future, this limit could be increased to 10mb with some additional packing logic. This brings me to the next point.
+1. The maximum size that a value can be is approximately 0.99 mb. This is also the maximum size of the main database gist. In the future, this limit could be increased to 10mb with some additional packing logic.
