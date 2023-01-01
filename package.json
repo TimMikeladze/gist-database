@@ -81,7 +81,7 @@
   },
   "dependencies": {
     "is-plain-obj": "4.1.0",
-    "node-fetch": "3.3.0"
+    "cross-fetch": "3.1.5"
   },
   "resolutions": {}
 }
