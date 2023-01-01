@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import isPlainObject from 'is-plain-obj'
 import fetch from 'node-fetch'
 import { getGistApi } from './gistApi'
+import { compress, decompress } from 'compress-json'
 
 export interface GistDatabaseOptions {
   description?: string
@@ -43,7 +44,7 @@ export const defaultOptions: Partial<GistDatabaseOptions> = {
 }
 
 export class GistDatabase {
-  private options: GistDatabaseOptions
+  private readonly options: GistDatabaseOptions
   public readonly gistApi: ReturnType<typeof getGistApi>
   public isNewDatabase: boolean
 
@@ -106,13 +107,13 @@ export class GistDatabase {
 
     const database = JSON.parse(root.files['database.json'].content)
 
-    const found: DocRef = get(database, path)
+    const found: DocRef = GistDatabase.get(database, path)
 
     if (!found) {
       return undefined
     }
 
-    if (found.ttl.ttl && ttlIsExpired(found.ttl)) {
+    if (found.ttl.ttl && GistDatabase.ttlIsExpired(found.ttl)) {
       await this.gistApi(`/gists/${found.id}`, 'DELETE')
       return undefined
     }
@@ -126,8 +127,8 @@ export class GistDatabase {
       return undefined
     }
 
-    const value = gist.files?.[formatPath(path)]
-      ? JSON.parse(gist.files?.[formatPath(path)].content)
+    const value = gist.files?.[GistDatabase.formatPath(path)]
+      ? JSON.parse(gist.files?.[GistDatabase.formatPath(path)].content)
       : null
 
     if (!value) {
@@ -136,7 +137,7 @@ export class GistDatabase {
 
     const ttl = JSON.parse(gist.files['ttl.json'].content)
 
-    if (ttl.ttl && ttlIsExpired(ttl)) {
+    if (ttl.ttl && GistDatabase.ttlIsExpired(ttl)) {
       await this.gistApi(`/gists/${found.id}`, 'DELETE')
       return undefined
     }
@@ -171,7 +172,7 @@ export class GistDatabase {
 
     const database = JSON.parse(root.files['database.json'].content)
 
-    const id = get(database, path)
+    const id = GistDatabase.get(database, path)
 
     let gist: GistResponse
 
@@ -179,7 +180,7 @@ export class GistDatabase {
       gist = (await this.gistApi(`/gists/${id}`, 'PATCH', {
         description,
         files: {
-          [formatPath(path)]: {
+          [GistDatabase.formatPath(path)]: {
             content: JSON.stringify(value)
           },
           'ttl.json': {
@@ -195,7 +196,7 @@ export class GistDatabase {
         description,
         public: this.options.public,
         files: {
-          [formatPath(path)]: {
+          [GistDatabase.formatPath(path)]: {
             content: JSON.stringify(value)
           },
           'ttl.json': {
@@ -209,10 +210,10 @@ export class GistDatabase {
     }
 
     if (!id || ttl) {
-      const newDatabase = set(database, path, {
+      const newDatabase = GistDatabase.set(database, path, {
         id: gist.id,
         ttl: {
-          ...get(database, [...path, 'ttl']),
+          ...GistDatabase.get(database, [...path, 'ttl']),
           ttl
         }
       })
@@ -237,7 +238,7 @@ export class GistDatabase {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
     const database = JSON.parse(root.files['database.json'].content)
-    const found: DocRef = get(database, path)
+    const found: DocRef = GistDatabase.get(database, path)
 
     if (!found) {
       return undefined
@@ -245,7 +246,7 @@ export class GistDatabase {
 
     await this.gistApi(`/gists/${found.id}`, 'DELETE')
 
-    const newDatabase = del(database, path)
+    const newDatabase = GistDatabase.del(database, path)
 
     await this.gistApi(`/gists/${this.options.gistId}`, 'PATCH', {
       files: {
@@ -272,57 +273,64 @@ export class GistDatabase {
 
     await this.gistApi(`/gists/${this.options.gistId}`, 'DELETE')
   }
-}
 
-export const get = (obj: any, path: string[]) => {
-  if (path.length === 0) {
-    return obj
+  public static get(obj: any, path: string[]) {
+    if (path.length === 0) {
+      return obj
+    }
+    const [key, ...rest] = path
+    if (obj[key] === undefined) {
+      return undefined
+    }
+    return GistDatabase.get(obj[key], rest)
   }
-  const [key, ...rest] = path
-  if (obj[key] === undefined) {
-    return undefined
-  }
-  return get(obj[key], rest)
-}
 
-export const set = (obj: any, path: string[], value: any) => {
-  if (path.length === 0) {
-    return value
+  public static set(obj: any, path: string[], value: any) {
+    if (path.length === 0) {
+      return value
+    }
+    const [key, ...rest] = path
+    return {
+      ...obj,
+      [key]: GistDatabase.set(obj[key], rest, value)
+    }
   }
-  const [key, ...rest] = path
-  return {
-    ...obj,
-    [key]: set(obj[key], rest, value)
+
+  public static del(obj: any, path: string[]) {
+    if (path.length === 0) {
+      return undefined
+    }
+    const [key, ...rest] = path
+    if (obj[key] === undefined) {
+      return obj
+    }
+    return {
+      ...obj,
+      [key]: GistDatabase.del(obj[key], rest)
+    }
+  }
+
+  public static ttlIsExpired(ttl: DocRef['ttl']) {
+    return ttl.ttl && Date.now() - ttl.createdAt > ttl.ttl
+  }
+
+  public static formatPath(path: string[]) {
+    return (Array.isArray(path) ? path.join('.') : path) + '.json'
+  }
+
+  public static toJSON(value: any) {
+    return JSON.stringify(compress(value))
+  }
+
+  public static fromJSON(value: any) {
+    return JSON.parse(decompress(value))
   }
 }
-
-export const del = (obj: any, path: string[]) => {
-  if (path.length === 0) {
-    return undefined
-  }
-  const [key, ...rest] = path
-  if (obj[key] === undefined) {
-    return obj
-  }
-  return {
-    ...obj,
-    [key]: del(obj[key], rest)
-  }
-}
-
-export const ttlIsExpired = (ttl: { createdAt: number; ttl: number }) => {
-  return ttl && Date.now() >= Number(ttl.createdAt) + Number(ttl.ttl)
-}
-
-export const formatPath = (path: string | string[]) => {
-  return (Array.isArray(path) ? path.join('.') : path) + '.json'
-}
-
 // https://gist.github.com/vlucas/2bd40f62d20c1d49237a109d491974eb
 
 const IV_LENGTH = 16 // For AES, this is always 16
 
-function encrypt(text, encryptionKey) {
+const encrypt = (text: string, encryptionKey: string) => {
   const iv = crypto.randomBytes(IV_LENGTH)
   const cipher = crypto.createCipheriv(
     'aes-256-cbc',
@@ -336,7 +344,7 @@ function encrypt(text, encryptionKey) {
   return iv.toString('hex') + ':' + encrypted.toString('hex')
 }
 
-function decrypt(text, encryptionKey) {
+const decrypt = (text: string, encryptionKey: string) => {
   const textParts = text.split(':')
   const iv = Buffer.from(textParts.shift(), 'hex')
   const encryptedText = Buffer.from(textParts.join(':'), 'hex')

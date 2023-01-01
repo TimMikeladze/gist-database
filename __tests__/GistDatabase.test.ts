@@ -1,4 +1,4 @@
-import { get, set, GistDatabase, del, GistResponse } from '../src'
+import { GistDatabase, GistResponse } from '../src'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -52,10 +52,10 @@ describe('GistDatabase', () => {
       {
         name: 'test_ttl'
       },
-      500
+      250
     )
 
-    await sleep(1000)
+    await sleep(500)
 
     expect(await db.get('test_ttl')).toBeUndefined()
 
@@ -85,16 +85,16 @@ it('get and set and del', () => {
       c: {}
     }
   }
-  expect(get(obj, ['a'])).toBe(1)
-  expect(get(obj, ['b', 'c'])).toEqual({})
+  expect(GistDatabase.get(obj, ['a'])).toBe(1)
+  expect(GistDatabase.get(obj, ['b', 'c'])).toEqual({})
 
-  let res = set(obj, ['a'], 2)
-  expect(get(res, ['a'])).toBe(2)
-  res = set(res, ['b', 'c'], { d: 3 })
-  expect(get(res, ['b', 'c'])).toEqual({ d: 3 })
+  let res = GistDatabase.set(obj, ['a'], 2)
+  expect(GistDatabase.get(res, ['a'])).toBe(2)
+  res = GistDatabase.set(res, ['b', 'c'], { d: 3 })
+  expect(GistDatabase.get(res, ['b', 'c'])).toEqual({ d: 3 })
 
-  res = del(res, ['b', 'c'])
+  res = GistDatabase.del(res, ['b', 'c'])
 
-  expect(get(res, ['b', 'c'])).toBeUndefined()
-  expect(get(res, ['a'])).toBe(2)
+  expect(GistDatabase.get(res, ['b', 'c'])).toBeUndefined()
+  expect(GistDatabase.get(res, ['a'])).toBe(2)
 })
