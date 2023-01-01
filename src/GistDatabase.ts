@@ -19,13 +19,13 @@ export type GistResponse = {
   url: string
 }
 
-export type Doc = {
+export type Doc<T = any> = {
   gist: {
     [key: string]: any
     id: string
   }
   id: string
-  value: any
+  value: T
 }
 
 export type DocRef = {
@@ -97,7 +97,7 @@ export class GistDatabase {
     )) as GistResponse
   }
 
-  public async get(key: string | string[]): Promise<Doc> {
+  public async get<T = any>(key: string | string[]): Promise<Doc<T>> {
     const path = Array.isArray(key) ? key : [key]
 
     const root = await this.getRoot()
@@ -154,12 +154,12 @@ export class GistDatabase {
     return (await this.get(key)) !== undefined
   }
 
-  public async set(
+  public async set<T = any>(
     key: string | string[],
-    value: any,
+    value: T,
     ttl?: number,
     description?: string
-  ): Promise<Doc> {
+  ): Promise<Doc<T>> {
     if (!isPlainObject(value)) {
       throw new Error('value must be a plain javascript object')
     }
@@ -271,7 +271,7 @@ export class GistDatabase {
     await this.gistApi(`/gists/${this.options.gistId}`, 'DELETE')
   }
 
-  public static get(obj: any, path: string[]) {
+  public static get<T = any>(obj: T, path: string[]): T {
     if (path.length === 0) {
       return obj
     }
@@ -282,7 +282,7 @@ export class GistDatabase {
     return GistDatabase.get(obj[key], rest)
   }
 
-  public static set(obj: any, path: string[], value: any) {
+  public static set<T = any>(obj: T, path: string[], value: any): T {
     if (path.length === 0) {
       return value
     }
@@ -293,7 +293,7 @@ export class GistDatabase {
     }
   }
 
-  public static del(obj: any, path: string[]) {
+  public static del<T>(obj: T, path: string[]): T {
     if (path.length === 0) {
       return undefined
     }
