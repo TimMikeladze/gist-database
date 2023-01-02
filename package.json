@@ -90,7 +90,8 @@
   "dependencies": {
     "buffer": "6.0.3",
     "cross-fetch": "3.1.5",
-    "is-plain-obj": "4.1.0"
+    "is-plain-obj": "4.1.0",
+    "msgpackr": "1.8.1"
   },
   "resolutions": {
     "json5": ">=2.2.2"

@@ -130,6 +130,15 @@ Gists have a limitation of 1mb per file with a maximum of 10 files per gist.
 
 When data is written or read for a specific key this library will handle the chunking of its value across multiple files within the gist to remain within the 1mb limit per file. By this logic, in theory, the maximum value that could be written is 10mb.
 
+## 🗜️ Compression
+
+When initializing `GistDatabase` you can pass an optional parameter `compression` to control how data is serialized and deserialized. By default the data is not compressed at all and is stored as plain JSON.
+
+**Available compression options:**
+
+- `none` - no compression
+- `msgpck` - [msgpack](https://msgpack.org/) compression using [msgpackr](https://www.npmjs.com/package/msgpackr)
+
 ## ⚠️ Limitations
 
 1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose or that needs to remain consistent. If it's important, use the proper database solution for your problem.

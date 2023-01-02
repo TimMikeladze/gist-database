@@ -1,9 +1,15 @@
 import isPlainObject from 'is-plain-obj'
 import { getGistApi } from './gistApi'
 import { Blob } from 'buffer'
-import { Packr } from 'msgpackr'
+import { pack, unpack } from 'msgpackr'
+
+export enum CompressionType {
+  msgpack = 'msgpack',
+  none = 'none'
+}
 
 export interface GistDatabaseOptions {
+  compression?: CompressionType
   description?: string
   id?: string
   public?: boolean
@@ -72,7 +78,7 @@ export class GistDatabase {
       public: options.public,
       files: {
         'database.json': {
-          content: GistDatabase.serialize({})
+          content: GistDatabase.serialize({}, options.compression)
         }
       }
     }) as Promise<GistResponse>
@@ -108,7 +114,8 @@ export class GistDatabase {
     const root = await this.getRoot()
 
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content
+      root.files['database.json'].content,
+      this.options.compression
     )
 
     const found: DocRef = GistDatabase.get(database, path)
@@ -135,7 +142,10 @@ export class GistDatabase {
       return undefined
     }
 
-    const data = GistDatabase.unpack(gist.files) as DocRef & Doc<T>
+    const data = GistDatabase.unpack(
+      gist.files,
+      this.options.compression
+    ) as DocRef & Doc<T>
 
     if (!data) {
       return undefined
@@ -163,7 +173,7 @@ export class GistDatabase {
     return (await this.get(key)) !== undefined
   }
 
-  public static unpack(files: GistResponse['files']) {
+  public static unpack(files: GistResponse['files'], type: CompressionType) {
     const keys = Object.keys(files)
     if (!keys.length) {
       return undefined
@@ -172,13 +182,18 @@ export class GistDatabase {
     for (const key of keys) {
       data = {
         ...data,
-        ...GistDatabase.deserialize(files[key].content)
+        ...GistDatabase.deserialize(files[key].content, type)
       }
     }
     return data
   }
 
-  public static async pack(path, value, { ttl, createdAt }) {
+  public static async pack(
+    path,
+    value,
+    { ttl, createdAt },
+    type: CompressionType
+  ) {
     const data = {
       value,
       ttl: {
@@ -188,7 +203,8 @@ export class GistDatabase {
     }
 
     // eslint-disable-next-line no-undef
-    const size = new Blob([JSON.stringify(GistDatabase.serialize(value))]).size
+    const size = new Blob([JSON.stringify(GistDatabase.serialize(value, type))])
+      .size
 
     if (
       size >
@@ -229,11 +245,11 @@ export class GistDatabase {
         const [firstHalf, secondHalf] = bisect(obj)
 
         const firstHalfSize = new Blob([
-          this.serialize(keysToValues(firstHalf, obj))
+          this.serialize(keysToValues(firstHalf, obj), type)
         ]).size
 
         const secondHalfSize = new Blob([
-          this.serialize(keysToValues(secondHalf, obj))
+          this.serialize(keysToValues(secondHalf, obj), type)
         ]).size
 
         if (
@@ -241,7 +257,7 @@ export class GistDatabase {
           firstHalfSize + secondHalfSize
         ) {
           results[GistDatabase.formatPath(path, index)] = {
-            content: this.serialize(obj)
+            content: this.serialize(obj, type)
           }
           finished = true
         } else {
@@ -294,7 +310,8 @@ export class GistDatabase {
     const root = await this.getRoot()
 
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content
+      root.files['database.json'].content,
+      this.options.compression
     )
 
     const id = GistDatabase.get(database, path)
@@ -302,20 +319,30 @@ export class GistDatabase {
     let gist: GistResponse
 
     if (id) {
-      const files = await GistDatabase.pack(path, value, {
-        ttl,
-        createdAt: Date.now()
-      })
+      const files = await GistDatabase.pack(
+        path,
+        value,
+        {
+          ttl,
+          createdAt: Date.now()
+        },
+        this.options.compression
+      )
 
       gist = (await this.gistApi(`/gists/${id}`, 'PATCH', {
         description,
         files
       })) as GistResponse
     } else {
-      const files = await GistDatabase.pack(path, value, {
-        ttl,
-        createdAt: Date.now()
-      })
+      const files = await GistDatabase.pack(
+        path,
+        value,
+        {
+          ttl,
+          createdAt: Date.now()
+        },
+        this.options.compression
+      )
 
       gist = (await this.gistApi('/gists', 'POST', {
         description,
@@ -336,7 +363,10 @@ export class GistDatabase {
       await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
           'database.json': {
-            content: GistDatabase.serialize(newDatabase)
+            content: GistDatabase.serialize(
+              newDatabase,
+              this.options.compression
+            )
           }
         }
       })
@@ -353,7 +383,8 @@ export class GistDatabase {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content
+      root.files['database.json'].content,
+      this.options.compression
     )
     const found: DocRef = GistDatabase.get(database, path)
 
@@ -368,7 +399,7 @@ export class GistDatabase {
     await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
       files: {
         'database.json': {
-          content: GistDatabase.serialize(newDatabase)
+          content: GistDatabase.serialize(newDatabase, this.options.compression)
         }
       }
     })
@@ -381,7 +412,8 @@ export class GistDatabase {
   public async destroy() {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content
+      root.files['database.json'].content,
+      this.options.compression
     )
 
     await Promise.allSettled(
@@ -437,11 +469,21 @@ export class GistDatabase {
     return (Array.isArray(path) ? path.join('.') : path) + '_' + index + '.json'
   }
 
-  public static serialize(value: any) {
-    return JSON.stringify(value)
+  public static serialize(value: any, type: CompressionType) {
+    if (type === CompressionType.msgpack) {
+      const serialized = pack(value)
+      return JSON.stringify(serialized)
+    } else {
+      return JSON.stringify(value)
+    }
   }
 
-  public static deserialize(value: any) {
-    return JSON.parse(value)
+  public static deserialize(value: any, type: CompressionType) {
+    if (type === CompressionType.msgpack) {
+      const buffer = Buffer.from(JSON.parse(value))
+      return unpack(buffer)
+    } else {
+      return JSON.parse(value)
+    }
   }
 }
