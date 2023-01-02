@@ -68,6 +68,10 @@ export class GistDatabase {
     })
   }
 
+  public getDatabaseId() {
+    return this.options.id
+  }
+
   public static createDatabaseRoot(
     options: GistDatabaseOptions
   ): Promise<GistResponse> {
