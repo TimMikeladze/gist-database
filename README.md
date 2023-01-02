@@ -12,7 +12,7 @@ pnpm add gist-database
 
 ## 🚪 Introduction
 
-Sometimes all a small project needs is the ability to read/write small amounts of JSON data and have it persist in some cloud storage. Imagine a simple data-model which receives infrequent updates and could be represented as JSON object. It doesn't demand a full-blown database, but it would be neat to have a way to interact with this data and have it persist.
+Sometimes all a project needs is the ability to read/write small amounts of JSON data and have it saved in some persistent storage. Imagine a simple data-model which receives infrequent updates and could be represented as JSON object. It doesn't demand a full-blown database, but it would be neat to have a way to interact with this data and have it persist across sessions.
 
 This is where `gist-database` comes in handy, by leveraging the power of the [gist api](https://gist.github.com/) you can easily create a key/value data-store for your project.
 
@@ -120,7 +120,6 @@ await db.set<ExampleData>('key_with_ttl', {
 })
 
 // Get or delete many keys at once. `undefined` will be returned for keys that don't exist.
-
 await db.getMany(['key1', 'key2', 'key3'])
 
 await db.deleteMany(['key1', 'key2', 'key3'])
@@ -133,13 +132,13 @@ await db.destroy()
 
 The gist of it: each database is stored as multiple `.json` files with one or more of these files maintaining additional metadata about the database.
 
-The main file is called `database.json` gist (this is the gistId you provided during initialization). It serves multiple purposes, but is primarily used as a lookup table for gistIds with a specific key. It also contains additional metadata such as associating TTL values with keys. Take care when editing or removing this file as it is the source of truth for your database.
+The main file is called `database.json` (this is the file corresponding to the id you provided during initialization). It serves multiple purposes, but is primarily used as a lookup table for gistIds with a specific key. It also contains additional metadata such as associating TTL values with keys. Take care when editing or removing this file as it is the source of truth for your database.
 
-When a value is created or updated it is stored as a dedicated gist in a `.json`. It maintains the provided value plus additional metadata such as TTL.
+When a value is created or updated a new `.json` gist is created for the document. It contains the provided value plus additional metadata such as TTL. The id of this newly created gist is then added to the lookup table in `database.json`.
 
-Gists have a limitation of 1mb per file with a maximum of 10 files per gist.
+Each gist can contain up to 10 files, with each file having a maximum size of 1m.
 
-When data is written or read for a specific key this library will handle the chunking of its value across multiple files within the gist to remain within the 1mb limit per file. By this logic, in theory, the maximum value that could be written is 10mb.
+When data is written or read for a specific key, this library will chunk the data and pack it into multiple files within the gist to optimize storage.
 
 ## 🗜️ Compression
 
@@ -149,9 +148,10 @@ When initializing `GistDatabase` you can pass an optional parameter `compression
 
 - `none` - no compression
 - `msgpck` - [msgpack](https://msgpack.org/) compression using [msgpackr](https://www.npmjs.com/package/msgpackr)
+- `pretty` - Store data as well-formatted JSON, this is useful for debugging purposes or databases where the content needs to be easily human-readable.
 
 ## ⚠️ Limitations
 
 1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose or that needs to remain consistent. If it's important, use the proper database solution for your problem.
-1. This is not intended for **high write** scenarios. You will be rate limited by the GitHub API. This is package is intended for **low write**, **low concurrency** scenarios.
+1. This is not intended for **high write** scenarios. You will be rate limited by the GitHub API. This is package is intended for **low write**, **single session** scenarios.
 1. The maximum size that a value can be is approximately 10mb. However, I suspect a request that large would simply be rejected by the API. It's not a scenario I'm building for as sophisticated storage is beyond the scope of this library. Once again this is not a real database, it should not be used for storing large documents.

@@ -5,7 +5,8 @@ import { pack, unpack } from 'msgpackr'
 
 export enum CompressionType {
   msgpack = 'msgpack',
-  none = 'none'
+  none = 'none',
+  pretty = 'pretty'
 }
 
 export interface GistDatabaseOptions {
@@ -488,6 +489,8 @@ export class GistDatabase {
     if (type === CompressionType.msgpack) {
       const serialized = pack(value)
       return JSON.stringify(serialized)
+    } else if (type === CompressionType.pretty) {
+      return JSON.stringify(value, null, 2)
     } else {
       return JSON.stringify(value)
     }
