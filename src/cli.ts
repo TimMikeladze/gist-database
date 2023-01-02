@@ -21,7 +21,8 @@ const main = async () => {
 
   console.log({
     id: res.id,
-    url: res.url,
+    rawUrl: res.url,
+    url: `https://gist.github.com/${res.id}`,
     public: isPublic,
     description: process.argv[3]
   })

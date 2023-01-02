@@ -13,5 +13,6 @@
         "useESM": true
       }
     ]
-  }
+  },
+  "testTimeout": 60000
 }

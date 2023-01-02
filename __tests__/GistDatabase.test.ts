@@ -10,7 +10,6 @@ for (const compressionType of Object.values(CompressionType)) {
         token: process.env.GIST_TOKEN,
         compression: compressionType
       })
-      await db.init()
     })
     afterAll(async () => {
       await db.destroy()
@@ -68,7 +67,7 @@ for (const compressionType of Object.values(CompressionType)) {
       )) as GistResponse
 
       expect(found).toEqual({})
-    }, 30000)
+    })
     it('gets and deletes many', async () => {
       await db.set('test_many_one', {})
       await db.set('test_many_two', {})
@@ -83,7 +82,7 @@ for (const compressionType of Object.values(CompressionType)) {
         undefined,
         undefined
       ])
-    }, 30000)
+    })
   })
 }
 

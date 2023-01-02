@@ -55,6 +55,7 @@ export class GistDatabase {
   public static MAX_FILE_SIZE_BYTES = 999999 // 0.99mb
   public static MAX_FILES_PER_GIST = 10
   public isNewDatabase: boolean
+  public initialized: boolean = false
 
   constructor(options: GistDatabaseOptions) {
     this.options = {
@@ -98,10 +99,18 @@ export class GistDatabase {
       this.isNewDatabase = false
       this.options.id = gist.id
     }
+    this.initialized = true
     return gist
   }
 
+  private async initIfNeeded() {
+    if (!this.initialized) {
+      await this.init()
+    }
+  }
+
   public async getRoot(): Promise<GistResponse> {
+    await this.initIfNeeded()
     return (await this.gistApi(
       `/gists/${this.options.id}`,
       'GET'
