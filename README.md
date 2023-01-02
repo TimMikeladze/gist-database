@@ -110,6 +110,8 @@ const updated = await db.set<ExampleData>('key', {
 
 await db.has('key') // true
 
+await db.keys() // ['key']
+
 await db.delete('key') // void
 
 await db.set<ExampleData>('key_with_ttl', {

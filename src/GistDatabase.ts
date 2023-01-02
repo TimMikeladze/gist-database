@@ -109,6 +109,15 @@ export class GistDatabase {
     }
   }
 
+  public async keys(): Promise<string[]> {
+    const root = await this.getRoot()
+    const database = GistDatabase.deserialize(
+      root.files['database.json'].content,
+      this.options.compression
+    )
+    return Object.keys(database)
+  }
+
   public async getRoot(): Promise<GistResponse> {
     await this.initIfNeeded()
     return (await this.gistApi(
@@ -361,21 +370,18 @@ export class GistDatabase {
     }
 
     if (!id || ttl) {
-      const newDatabase = GistDatabase.set(database, path, {
+      database[path.join('.')] = {
         id: gist.id,
         ttl: {
-          ...GistDatabase.get(database, [...path, 'ttl']),
+          ...GistDatabase.get(database, [path.join('.'), 'ttl']),
           ttl
         }
-      })
+      }
 
       await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
           'database.json': {
-            content: GistDatabase.serialize(
-              newDatabase,
-              this.options.compression
-            )
+            content: GistDatabase.serialize(database, this.options.compression)
           }
         }
       })

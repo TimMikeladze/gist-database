@@ -35,6 +35,14 @@ for (const compressionType of Object.values(CompressionType)) {
         gist: expect.any(Object)
       })
     })
+    it('gets all keys', async () => {
+      await db.set('test_two', {
+        value: {
+          name: 'test_two'
+        }
+      })
+      expect(await db.keys()).toEqual(['test_one', 'test_two'])
+    })
     it('deletes', async () => {
       await db.set('test_two', {
         value: {
