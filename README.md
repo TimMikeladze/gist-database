@@ -1,6 +1,6 @@
 # 🗄️ Gist Database
 
-✨ Transform [gist](https://gist.github.com/) into your personal key/value database.
+✨ Transform [gist](https://gist.github.com/) into your personal key/value data store.
 
 ```console
 npm install gist-database
@@ -12,7 +12,7 @@ pnpm add gist-database
 
 ## 🚪 Introduction
 
-Sometimes all a small project needs is the ability to persist some data. Imagine some simple data-model receives infrequent updates and could be represented as JSON object. It doesn't demand a full-blown database, but it would be nice to have a simple way to persist your data in a simple way.
+Sometimes all a small project needs is the ability to read/write small amounts of JSON data and have it persist in some cloud storage. Imagine a simple data-model which receives infrequent updates and could be represented as JSON object. It doesn't demand a full-blown database, but it would be neat to have a way to interact with this data and have it persist.
 
 This is where `gist-database` comes in handy, by leveraging the power of the [gist api](https://gist.github.com/) you can easily create a key/value data-store for your project.
 
@@ -58,18 +58,27 @@ This is the gist containing your main database file. Save the `id` somewhere saf
 ```ts
 import { GistDatabase } from 'gist-database'
 
+// Initialize the database
+
 const db = new GistDatabase({
   token: process.env.GIST_TOKEN,
   id: process.env.GIST_ID
 })
 
-const res = await db.set('key', {
+// Before we begin let's define an optional Tyescript interface to add some type-safety to the shape of our data. Tip: combine this with Zod for even more safety around your data and business logic.
+
+interface ExampleData {
+  hello: string
+  foo?: string
+}
+
+const res = await db.set<ExampleData>('key', {
   value: {
     hello: 'world'
   }
 })
 
-const found = await db.get('key')
+const found = await db.get<ExampleData>('key')
 
 /**
  {
@@ -81,7 +90,7 @@ const found = await db.get('key')
 }
  **/
 
-const updated = await db.set('key', {
+const updated = await db.set<ExampleData>('key', {
   value: {
     hello: 'world',
     foo: 'bar'
@@ -103,7 +112,7 @@ await db.has('key') // true
 
 await db.delete('key') // void
 
-await db.set('key_with_ttl', {
+await db.set<ExampleData>('key_with_ttl', {
   ttl: 1000, // 1 second
   description: "I'll expire soon and be deleted upon retrieval"
 })
@@ -132,7 +141,7 @@ When data is written or read for a specific key this library will handle the chu
 
 ## 🗜️ Compression
 
-When initializing `GistDatabase` you can pass an optional parameter `compression` to control how data is serialized and deserialized. By default the data is not compressed at all and is stored as plain JSON.
+When initializing `GistDatabase` you can pass an optional parameter `compression` to control how data is serialized and deserialized. By default, the data is not compressed at all and is stored as plain JSON.
 
 **Available compression options:**
 
@@ -143,4 +152,4 @@ When initializing `GistDatabase` you can pass an optional parameter `compression
 
 1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose or that needs to remain consistent. If it's important, use the proper database solution for your problem.
 1. This is not intended for **high write** scenarios. You will be rate limited by the GitHub API. This is package is intended for **low write**, **low concurrency** scenarios.
-1. The maximum size that a value can be is approximately 10mb. However I suspect a request that large would simply be rejected by the API. It's not a scenario I'm building for as sophisticated storage is beyond the scope of this library. Once again this is not a real database, it should not be used for storing large documents.
+1. The maximum size that a value can be is approximately 10mb. However, I suspect a request that large would simply be rejected by the API. It's not a scenario I'm building for as sophisticated storage is beyond the scope of this library. Once again this is not a real database, it should not be used for storing large documents.
