@@ -333,7 +333,7 @@ export class GistDatabase {
       this.options.compression
     )
 
-    const id = GistDatabase.get(database, path)
+    const { id } = GistDatabase.get(database, path) || {}
 
     let gist: GistResponse
 

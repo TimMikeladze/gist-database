@@ -1,4 +1,5 @@
 import { CompressionType, GistDatabase, GistResponse } from '../src'
+import { pendingAlbums } from './data'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -113,4 +114,53 @@ it('get and set and del', () => {
 
   expect(GistDatabase.get(res, ['b', 'c'])).toBeUndefined()
   expect(GistDatabase.get(res, ['a'])).toBe(2)
+})
+
+describe('GistDatabase - advanced scenario', () => {
+  let db: GistDatabase
+  beforeAll(async () => {
+    db = new GistDatabase({
+      token: process.env.GIST_TOKEN,
+      compression: CompressionType.pretty
+    })
+  })
+  afterAll(async () => {
+    await db.destroy()
+  })
+
+  it('sets and gets value', async () => {
+    await db.set('pendingAlbums', {
+      value: pendingAlbums
+    })
+
+    let found = await db.get('pendingAlbums')
+
+    expect(found).toMatchObject({
+      value: pendingAlbums
+    })
+
+    expect(found.value.albums).toHaveLength(3)
+
+    pendingAlbums.albums.pop()
+
+    expect(found).not.toMatchObject({
+      value: pendingAlbums
+    })
+
+    expect(found.value.albums).toHaveLength(3)
+
+    expect(pendingAlbums.albums).toHaveLength(2)
+
+    await db.set('pendingAlbums', {
+      value: pendingAlbums
+    })
+
+    found = await db.get('pendingAlbums')
+
+    expect(found.value.albums).toHaveLength(2)
+
+    expect(found).toMatchObject({
+      value: pendingAlbums
+    })
+  })
 })
