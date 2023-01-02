@@ -102,7 +102,7 @@ it('get and set and del', () => {
     }
   }
   expect(GistDatabase.get(obj, ['a'])).toBe(1)
-  expect(GistDatabase.get(obj, ['b', 'c'])).toEqual({})
+  expect(GistDatabase.get(obj, ['b', 'c'])).toBeUndefined()
 
   let res = GistDatabase.set(obj, ['a'], 2)
   expect(GistDatabase.get(res, ['a'])).toBe(2)

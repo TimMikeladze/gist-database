@@ -442,39 +442,24 @@ export class GistDatabase {
   }
 
   public static get<T = any>(obj: T, path: string[]): T {
-    if (path.length === 0) {
-      return obj
-    }
-    const [key, ...rest] = path
-    if (obj[key] === undefined) {
-      return undefined
-    }
-    return GistDatabase.get(obj[key], rest)
+    const key = path.join('.')
+    return obj[key]
   }
 
   public static set<T = any>(obj: T, path: string[], value: any): T {
-    if (path.length === 0) {
-      return value
-    }
-    const [key, ...rest] = path
+    const key = path.join('.')
     return {
       ...obj,
-      [key]: GistDatabase.set(obj[key], rest, value)
+      [key]: value
     }
   }
 
   public static del<T>(obj: T, path: string[]): T {
-    if (path.length === 0) {
-      return undefined
-    }
-    const [key, ...rest] = path
-    if (obj[key] === undefined) {
-      return obj
-    }
-    return {
-      ...obj,
-      [key]: GistDatabase.del(obj[key], rest)
-    }
+    const key = path.join('.')
+
+    delete obj[key]
+
+    return obj
   }
 
   public static ttlIsExpired(ttl: DocRef['ttl']) {

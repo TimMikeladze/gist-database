@@ -136,7 +136,7 @@ The main file is called `database.json` (this is the file corresponding to the i
 
 When a value is created or updated a new `.json` gist is created for the document. It contains the provided value plus additional metadata such as TTL. The id of this newly created gist is then added to the lookup table in `database.json`.
 
-Each gist can contain up to 10 files, with each file having a maximum size of 1m.
+Each gist can contain up to 10 files, with each file having a maximum size of 1mb.
 
 When data is written or read for a specific key, this library will chunk the data and pack it into multiple files within the gist to optimize storage.
 
