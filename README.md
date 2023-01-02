@@ -118,8 +118,20 @@ await db.deleteMany(['key1', 'key2', 'key3'])
 await db.destroy()
 ```
 
+## 🏗️ How it works
+
+The gist of it: each database is stored as multiple `.json` files with one or more of these files maintaining additional metadata about the database.
+
+The main file is called `database.json` gist (this is the gistId you provided during initialization). It serves multiple purposes, but is primarily used as a lookup table for gistIds with a specific key. It also contains additional metadata such as associating TTL values with keys. Take care when editing or removing this file as it is the source of truth for your database.
+
+When a value is created or updated it is stored as a dedicated gist in a `.json`. It maintains the provided value plus additional metadata such as TTL.
+
+Gists have a limitation of 1mb per file with a maximum of 10 files per gist.
+
+When data is written or read for a specific key this library will handle the chunking of its value across multiple files within the gist to remain within the 1mb limit per file. By this logic, in theory, the maximum value that could be written is 10mb.
+
 ## ⚠️ Limitations
 
-1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose. If it's important, use the proper database solution for your problem.
+1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose or that needs to remain consistent. If it's important, use the proper database solution for your problem.
 1. This is not intended for **high write** scenarios. You will be rate limited by the GitHub API. This is package is intended for **low write**, **low concurrency** scenarios.
-1. The maximum size that a value can be is approximately 0.99 mb. This is also the maximum size of the main database gist. In the future, this limit could be increased to 10mb with some additional packing logic.
+1. The maximum size that a value can be is approximately 10mb. However I suspect a request that large would simply be rejected by the API. It's not a scenario I'm building for as sophisticated storage is beyond the scope of this library. Once again this is not a real database, it should not be used for storing large documents.

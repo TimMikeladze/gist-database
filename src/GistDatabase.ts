@@ -1,6 +1,7 @@
 import isPlainObject from 'is-plain-obj'
 import { getGistApi } from './gistApi'
 import { Blob } from 'buffer'
+import { Packr } from 'msgpackr'
 
 export interface GistDatabaseOptions {
   description?: string
@@ -46,6 +47,7 @@ export class GistDatabase {
   private readonly options: GistDatabaseOptions
   public readonly gistApi: ReturnType<typeof getGistApi>
   public static MAX_FILE_SIZE_BYTES = 999999 // 0.99mb
+  public static MAX_FILES_PER_GIST = 10
   public isNewDatabase: boolean
 
   constructor(options: GistDatabaseOptions) {
@@ -70,7 +72,7 @@ export class GistDatabase {
       public: options.public,
       files: {
         'database.json': {
-          content: JSON.stringify({})
+          content: GistDatabase.serialize({})
         }
       }
     }) as Promise<GistResponse>
@@ -105,7 +107,9 @@ export class GistDatabase {
 
     const root = await this.getRoot()
 
-    const database = JSON.parse(root.files['database.json'].content)
+    const database = GistDatabase.deserialize(
+      root.files['database.json'].content
+    )
 
     const found: DocRef = GistDatabase.get(database, path)
 
@@ -127,9 +131,11 @@ export class GistDatabase {
       return undefined
     }
 
-    const data = gist.files?.[GistDatabase.formatPath(path)]
-      ? JSON.parse(gist.files?.[GistDatabase.formatPath(path)].content)
-      : null
+    if (!gist?.files || !Object.keys(gist.files).length) {
+      return undefined
+    }
+
+    const data = GistDatabase.unpack(gist.files) as DocRef & Doc<T>
 
     if (!data) {
       return undefined
@@ -157,6 +163,21 @@ export class GistDatabase {
     return (await this.get(key)) !== undefined
   }
 
+  public static unpack(files: GistResponse['files']) {
+    const keys = Object.keys(files)
+    if (!keys.length) {
+      return undefined
+    }
+    let data = {}
+    for (const key of keys) {
+      data = {
+        ...data,
+        ...GistDatabase.deserialize(files[key].content)
+      }
+    }
+    return data
+  }
+
   public static async pack(path, value, { ttl, createdAt }) {
     const data = {
       value,
@@ -167,18 +188,90 @@ export class GistDatabase {
     }
 
     // eslint-disable-next-line no-undef
-    const size = new Blob([JSON.stringify(data)]).size
+    const size = new Blob([JSON.stringify(GistDatabase.serialize(value))]).size
 
-    if (size > GistDatabase.MAX_FILE_SIZE_BYTES) {
-      throw new Error('gist size is too large')
+    if (
+      size >
+      GistDatabase.MAX_FILE_SIZE_BYTES * GistDatabase.MAX_FILES_PER_GIST
+    ) {
+      throw new Error(
+        `attempting to write a value that is too large at ${path}`
+      )
     }
 
-    // TODO break up into multiple files if size is too large
+    // cut an object in half, returning an array containing keys to the first half and the second half
+    const bisect = (obj) => {
+      const keys = Object.keys(obj)
+      const half = Math.ceil(keys.length / 2)
+      return [keys.slice(0, half), keys.slice(half)]
+    }
 
-    const files = {
-      [GistDatabase.formatPath(path)]: {
-        content: JSON.stringify(data)
+    const keysToValues = (keys, obj) => {
+      return keys.reduce((acc, key) => {
+        acc[key] = obj[key]
+        return acc
+      }, {})
+    }
+
+    const toFiles = (
+      obj,
+      allResults = {}
+    ): Record<
+      string,
+      {
+        content: string
       }
+    > => {
+      let finished = false
+      let index = 0
+      let results = {}
+      while (!finished) {
+        const [firstHalf, secondHalf] = bisect(obj)
+
+        const firstHalfSize = new Blob([
+          this.serialize(keysToValues(firstHalf, obj))
+        ]).size
+
+        const secondHalfSize = new Blob([
+          this.serialize(keysToValues(secondHalf, obj))
+        ]).size
+
+        if (
+          GistDatabase.MAX_FILE_SIZE_BYTES >=
+          firstHalfSize + secondHalfSize
+        ) {
+          results[GistDatabase.formatPath(path, index)] = {
+            content: this.serialize(obj)
+          }
+          finished = true
+        } else {
+          if (firstHalfSize >= GistDatabase.MAX_FILE_SIZE_BYTES) {
+            results = {
+              ...allResults,
+              ...toFiles(keysToValues(firstHalf, obj), allResults)
+            }
+          }
+          if (secondHalfSize >= GistDatabase.MAX_FILE_SIZE_BYTES) {
+            results = {
+              ...allResults,
+              ...toFiles(keysToValues(secondHalf, obj), allResults)
+            }
+          }
+        }
+        index++
+      }
+      return {
+        ...allResults,
+        ...results
+      }
+    }
+
+    const files = toFiles(data)
+
+    if (Object.keys(files).length > GistDatabase.MAX_FILES_PER_GIST) {
+      throw new Error(
+        `attempting to write a value that has too many files at ${path}`
+      )
     }
 
     return files
@@ -200,7 +293,9 @@ export class GistDatabase {
 
     const root = await this.getRoot()
 
-    const database = JSON.parse(root.files['database.json'].content)
+    const database = GistDatabase.deserialize(
+      root.files['database.json'].content
+    )
 
     const id = GistDatabase.get(database, path)
 
@@ -241,7 +336,7 @@ export class GistDatabase {
       await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
           'database.json': {
-            content: JSON.stringify(newDatabase)
+            content: GistDatabase.serialize(newDatabase)
           }
         }
       })
@@ -257,7 +352,9 @@ export class GistDatabase {
   public async delete(key: string | string[]) {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
-    const database = JSON.parse(root.files['database.json'].content)
+    const database = GistDatabase.deserialize(
+      root.files['database.json'].content
+    )
     const found: DocRef = GistDatabase.get(database, path)
 
     if (!found) {
@@ -271,7 +368,7 @@ export class GistDatabase {
     await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
       files: {
         'database.json': {
-          content: JSON.stringify(newDatabase)
+          content: GistDatabase.serialize(newDatabase)
         }
       }
     })
@@ -283,7 +380,9 @@ export class GistDatabase {
 
   public async destroy() {
     const root = await this.getRoot()
-    const database = JSON.parse(root.files['database.json'].content)
+    const database = GistDatabase.deserialize(
+      root.files['database.json'].content
+    )
 
     await Promise.allSettled(
       Object.keys(database).map(async (key) => {
@@ -334,15 +433,15 @@ export class GistDatabase {
     return ttl.ttl && Date.now() - ttl.createdAt > ttl.ttl
   }
 
-  public static formatPath(path: string[], index: string = '0') {
+  public static formatPath(path: string[], index: number = 0) {
     return (Array.isArray(path) ? path.join('.') : path) + '_' + index + '.json'
   }
 
-  public static toJSON(value: any) {
+  public static serialize(value: any) {
     return JSON.stringify(value)
   }
 
-  public static fromJSON(value: any) {
+  public static deserialize(value: any) {
     return JSON.parse(value)
   }
 }
