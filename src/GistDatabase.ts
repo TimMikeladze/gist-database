@@ -53,7 +53,7 @@ export const defaultOptions: Partial<GistDatabaseOptions> = {
 export class GistDatabase {
   private readonly options: GistDatabaseOptions
   public readonly gistApi: ReturnType<typeof getGistApi>
-  public static MAX_FILE_SIZE_BYTES = 999999 // 0.99mb
+  public static MAX_FILE_SIZE_BYTES = 1000000 // 1mb
   public static MAX_FILES_PER_GIST = 10
   public isNewDatabase: boolean
   public initialized: boolean = false
