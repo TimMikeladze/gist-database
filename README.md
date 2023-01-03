@@ -150,6 +150,18 @@ When initializing `GistDatabase` you can pass an optional parameter `compression
 - `msgpck` - [msgpack](https://msgpack.org/) compression using [msgpackr](https://www.npmjs.com/package/msgpackr)
 - `pretty` - Store data as well-formatted JSON, this is useful for debugging purposes or databases where the content needs to be easily human-readable.
 
+## 🔐 Encryption
+
+When initializing `GistDatabase` you can pass an optional parameter called `encryptionKey` to enable `aes-256-gcm` encryption and decryption using the [cryptr](https://github.com/MauriceButler/cryptr) package.
+
+```ts
+const db = new GistDatabase({
+  token: process.env.GIST_TOKEN,
+  id: process.env.GIST_ID,
+  encryptionKey: process.env.ENCRYPTION_KEY
+})
+```
+
 ## ⚠️ Limitations
 
 1. This is **not** a replacement for a **production database!** Do not store data that you cannot afford to lose or that needs to remain consistent. If it's important, use the proper database solution for your problem.

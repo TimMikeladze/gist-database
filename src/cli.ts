@@ -1,4 +1,3 @@
-import { getGistApi } from './gistApi'
 import { GistDatabase } from './GistDatabase'
 
 if (!process.env.GIST_TOKEN) {

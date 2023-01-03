@@ -2,16 +2,21 @@ import isPlainObject from 'is-plain-obj'
 import { getGistApi } from './gistApi'
 import { Blob } from 'buffer'
 import { pack, unpack } from 'msgpackr'
+import Cryptr from 'cryptr'
 
 export enum CompressionType {
+  // eslint-disable-next-line no-unused-vars
   msgpack = 'msgpack',
+  // eslint-disable-next-line no-unused-vars
   none = 'none',
+  // eslint-disable-next-line no-unused-vars
   pretty = 'pretty'
 }
 
 export interface GistDatabaseOptions {
   compression?: CompressionType
   description?: string
+  encryptionKey?: string
   id?: string
   public?: boolean
   token: string
@@ -57,6 +62,7 @@ export class GistDatabase {
   public static MAX_FILES_PER_GIST = 10
   public isNewDatabase: boolean
   public initialized: boolean = false
+  private readonly cryptr: Cryptr
 
   constructor(options: GistDatabaseOptions) {
     this.options = {
@@ -66,6 +72,9 @@ export class GistDatabase {
     this.gistApi = getGistApi({
       token: this.options.token
     })
+    this.cryptr = this.options.encryptionKey
+      ? new Cryptr(this.options.encryptionKey)
+      : undefined
   }
 
   public getDatabaseId() {
@@ -79,12 +88,16 @@ export class GistDatabase {
       token: options.token
     })
 
+    const cryptr = options.encryptionKey
+      ? new Cryptr(options.encryptionKey)
+      : undefined
+
     return gistApi('/gists', 'POST', {
       description: options.description,
       public: options.public,
       files: {
         'database.json': {
-          content: GistDatabase.serialize({}, options.compression)
+          content: GistDatabase.serialize({}, options.compression, cryptr)
         }
       }
     }) as Promise<GistResponse>
@@ -118,7 +131,8 @@ export class GistDatabase {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
       root.files['database.json'].content,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     )
     return Object.keys(database)
   }
@@ -138,7 +152,8 @@ export class GistDatabase {
 
     const database = GistDatabase.deserialize(
       root.files['database.json'].content,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     )
 
     const found: DocRef = GistDatabase.get(database, path)
@@ -167,7 +182,8 @@ export class GistDatabase {
 
     const data = GistDatabase.unpack(
       gist.files,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     ) as DocRef & Doc<T>
 
     if (!data) {
@@ -196,7 +212,11 @@ export class GistDatabase {
     return (await this.get(key)) !== undefined
   }
 
-  public static unpack(files: GistResponse['files'], type: CompressionType) {
+  public static unpack(
+    files: GistResponse['files'],
+    type: CompressionType,
+    cryptr: Cryptr
+  ) {
     const keys = Object.keys(files)
     if (!keys.length) {
       return undefined
@@ -205,7 +225,7 @@ export class GistDatabase {
     for (const key of keys) {
       data = {
         ...data,
-        ...GistDatabase.deserialize(files[key].content, type)
+        ...GistDatabase.deserialize(files[key].content, type, cryptr)
       }
     }
     return data
@@ -215,7 +235,8 @@ export class GistDatabase {
     path,
     value,
     { ttl, createdAt },
-    type: CompressionType
+    type: CompressionType,
+    cryptr: Cryptr
   ) {
     const data = {
       value,
@@ -226,8 +247,9 @@ export class GistDatabase {
     }
 
     // eslint-disable-next-line no-undef
-    const size = new Blob([JSON.stringify(GistDatabase.serialize(value, type))])
-      .size
+    const size = new Blob([
+      JSON.stringify(GistDatabase.serialize(value, type, cryptr))
+    ]).size
 
     if (
       size >
@@ -268,11 +290,11 @@ export class GistDatabase {
         const [firstHalf, secondHalf] = bisect(obj)
 
         const firstHalfSize = new Blob([
-          this.serialize(keysToValues(firstHalf, obj), type)
+          this.serialize(keysToValues(firstHalf, obj), type, cryptr)
         ]).size
 
         const secondHalfSize = new Blob([
-          this.serialize(keysToValues(secondHalf, obj), type)
+          this.serialize(keysToValues(secondHalf, obj), type, cryptr)
         ]).size
 
         if (
@@ -280,7 +302,7 @@ export class GistDatabase {
           firstHalfSize + secondHalfSize
         ) {
           results[GistDatabase.formatPath(path, index)] = {
-            content: this.serialize(obj, type)
+            content: this.serialize(obj, type, cryptr)
           }
           finished = true
         } else {
@@ -334,7 +356,8 @@ export class GistDatabase {
 
     const database = GistDatabase.deserialize(
       root.files['database.json'].content,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     )
 
     const { id } = GistDatabase.get(database, path) || {}
@@ -349,7 +372,8 @@ export class GistDatabase {
           ttl,
           createdAt: Date.now()
         },
-        this.options.compression
+        this.options.compression,
+        this.cryptr
       )
 
       gist = (await this.gistApi(`/gists/${id}`, 'PATCH', {
@@ -364,7 +388,8 @@ export class GistDatabase {
           ttl,
           createdAt: Date.now()
         },
-        this.options.compression
+        this.options.compression,
+        this.cryptr
       )
 
       gist = (await this.gistApi('/gists', 'POST', {
@@ -386,7 +411,11 @@ export class GistDatabase {
       await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
           'database.json': {
-            content: GistDatabase.serialize(database, this.options.compression)
+            content: GistDatabase.serialize(
+              database,
+              this.options.compression,
+              this.cryptr
+            )
           }
         }
       })
@@ -404,7 +433,8 @@ export class GistDatabase {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
       root.files['database.json'].content,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     )
     const found: DocRef = GistDatabase.get(database, path)
 
@@ -419,7 +449,11 @@ export class GistDatabase {
     await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
       files: {
         'database.json': {
-          content: GistDatabase.serialize(newDatabase, this.options.compression)
+          content: GistDatabase.serialize(
+            newDatabase,
+            this.options.compression,
+            this.cryptr
+          )
         }
       }
     })
@@ -433,7 +467,8 @@ export class GistDatabase {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
       root.files['database.json'].content,
-      this.options.compression
+      this.options.compression,
+      this.cryptr
     )
 
     await Promise.allSettled(
@@ -474,23 +509,31 @@ export class GistDatabase {
     return (Array.isArray(path) ? path.join('.') : path) + '_' + index + '.json'
   }
 
-  public static serialize(value: any, type: CompressionType) {
-    if (type === CompressionType.msgpack) {
-      const serialized = pack(value)
-      return JSON.stringify(serialized)
-    } else if (type === CompressionType.pretty) {
-      return JSON.stringify(value, null, 2)
-    } else {
-      return JSON.stringify(value)
+  public static serialize(value: any, type: CompressionType, cryptr: Cryptr) {
+    const getData = () => {
+      if (type === CompressionType.msgpack) {
+        const serialized = pack(value)
+        return JSON.stringify(serialized)
+      } else if (type === CompressionType.pretty) {
+        return JSON.stringify(value, null, 2)
+      } else {
+        return JSON.stringify(value)
+      }
     }
+    if (cryptr) {
+      return cryptr.encrypt(getData())
+    }
+    return getData()
   }
 
-  public static deserialize(value: any, type: CompressionType) {
+  public static deserialize(value: any, type: CompressionType, cryptr: Cryptr) {
     if (type === CompressionType.msgpack) {
-      const buffer = Buffer.from(JSON.parse(value))
+      const buffer = Buffer.from(
+        JSON.parse(cryptr ? cryptr.decrypt(value) : value)
+      )
       return unpack(buffer)
     } else {
-      return JSON.parse(value)
+      return JSON.parse(cryptr ? cryptr.decrypt(value) : value)
     }
   }
 }

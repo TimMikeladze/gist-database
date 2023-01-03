@@ -3,17 +3,22 @@ import { pendingAlbums } from './data'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+let index = 0
+
 for (const compressionType of Object.values(CompressionType)) {
   describe(`GistDatabase - compression: ${compressionType}`, () => {
     let db: GistDatabase
     beforeAll(async () => {
       db = new GistDatabase({
         token: process.env.GIST_TOKEN,
-        compression: compressionType
+        compression: compressionType,
+        encryptionKey:
+          index % 2 === 0 ? process.env.GIST_ENCRYPTION_KEY : undefined
       })
     })
     afterAll(async () => {
       await db.destroy()
+      index = index + 1
     })
     it('sets and gets', async () => {
       const res = await db.set('test_one', {
