@@ -158,7 +158,7 @@ for (const compressionType of Object.values(CompressionType)) {
   })
 }
 
-it('get and set and del', () => {
+it('get and set and del static util functions', () => {
   const obj = {
     a: 1,
     b: {
@@ -177,6 +177,102 @@ it('get and set and del', () => {
 
   expect(GistDatabase.get(res, ['b', 'c'])).toBeUndefined()
   expect(GistDatabase.get(res, ['a'])).toBe(2)
+})
+
+describe('GistDatabase - advanced scenario', () => {
+  let db: GistDatabase
+  beforeAll(async () => {
+    db = new GistDatabase({
+      token: process.env.GIST_TOKEN,
+      compression: CompressionType.pretty
+    })
+  })
+  afterAll(async () => {
+    await db.destroy()
+  })
+  it('stores markdown files', async () => {
+    const res = await db.set('test_markdown', {
+      value: {
+        name: 'test_markdown'
+      },
+      files: {
+        'test.md': {
+          content: '# Hello world'
+        }
+      }
+    })
+
+    expect(res).toMatchObject({
+      files: {
+        'test.md': {
+          content: '# Hello world',
+          url: expect.any(String)
+        }
+      }
+    })
+
+    const found = await db.get('test_markdown')
+
+    expect(found).toMatchObject({
+      files: {
+        'test.md': {
+          content: '# Hello world',
+          url: expect.any(String)
+        }
+      }
+    })
+
+    await db.set('test_markdown', {
+      value: {
+        name: 'test_markdown'
+      },
+      files: {
+        'test.md': {
+          content: '# Hello world updated'
+        },
+        'test2.md': {
+          content: '# Hello world 2'
+        }
+      }
+    })
+
+    const updated = await db.get('test_markdown')
+
+    expect(updated).toMatchObject({
+      value: {
+        name: 'test_markdown'
+      },
+      files: {
+        'test.md': {
+          content: '# Hello world updated',
+          url: expect.any(String)
+        },
+        'test2.md': {
+          content: '# Hello world 2',
+          url: expect.any(String)
+        }
+      }
+    })
+
+    const gist = await db.gistApi(
+      `/gists/${updated.files['test.md'].id}`,
+      'GET'
+    )
+
+    expect(gist).toMatchObject({
+      files: {
+        'test.md': {
+          content: '# Hello world updated'
+        }
+      }
+    })
+
+    await db.delete('test_markdown')
+
+    expect(
+      await db.gistApi(`/gists/${updated.files['test.md'].id}`, 'GET')
+    ).toEqual({})
+  })
 })
 
 describe('GistDatabase - advanced scenario', () => {

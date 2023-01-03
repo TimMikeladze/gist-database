@@ -168,6 +168,55 @@ Each gist can contain up to 10 files, with each file having a maximum size of 1m
 
 When data is written or read for a specific key, this library will chunk the data and pack it into multiple files within the gist to optimize storage.
 
+## 📄 Storing markdown files
+
+Gists lend themselves perfectly to storing markdown files which you can then revise over time. This is a great way to keep track of your notes, ideas, or even use Gist as a headless CMS to manage your blog posts.
+
+> **❗Important note:** These files will be stored as is without any **compression** or **encryption** and there is no additional guarding around inconsistent writes using revision ids when writing to the gist containing these files.
+
+Out of the box this library supports storing additional files beyond the `value` argument passed to `set`. They will be stored as a separate gist file and be part of the response when calling `get` or `set`.
+
+This is useful for storing `.md` files or other assets like `.yml` files alongside some data while circumventing the packing, compression and encryption that is typically applied to the `value` argument.
+
+```ts
+const blogId = 'xxxxxx'
+
+await db.set(`blog_${blogId}`, {
+  value: {
+    tags: ['javascript', 'typescript', 'gist-database'],
+    title: 'My blog post'
+  },
+  files: [
+    {
+      name: `blog_${id}.md`,
+      content: `# My blog post
+Gist Database is pretty cool.`
+    }
+  ]
+})
+
+await db.get(`blog_${blogId}`)
+
+/**
+ {
+  value : {
+    tags: ['javascript', 'typescript', 'gist-database'],
+    title: 'My blog post',
+  },
+  id: "xxxxxxxxxxxxxxxxxxx",
+  url: "https://api.github.com/gists/xxxxxxxxxxx"
+  rev: "xxxxx",
+  files: [
+    {
+      name: 'blog_${id}.md',
+      content: `# My blog post
+Gist Database is pretty cool.`
+    }
+  ]
+}
+ **/
+```
+
 ## 🗜️ Compression
 
 When initializing `GistDatabase` you can pass an optional parameter `compression` to control how data is serialized and deserialized. By default, the data is not compressed at all and is stored as plain JSON.

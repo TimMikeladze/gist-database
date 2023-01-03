@@ -35,7 +35,18 @@ export type GistResponse = {
   url: string
 }
 
+export interface ExtraFile {
+  content?: string
+  gist?: GistResponse
+  id: string
+  url: string
+}
+
+export type ExtraFiles = Record<string, ExtraFile>
+
 export type Doc<T = any> = {
+  extraFile: ExtraFile
+  files: ExtraFiles
   gist: {
     [key: string]: any
     id: string
@@ -173,6 +184,9 @@ export class GistDatabase {
     }
 
     if (foundDocRef.ttl.ttl && GistDatabase.ttlIsExpired(foundDocRef.ttl)) {
+      await this.deleteExtraFilesForGist({
+        id: foundDocRef.id
+      })
       await this.gistApi(`/gists/${foundDocRef.id}`, 'DELETE')
       return undefined
     }
@@ -196,13 +210,33 @@ export class GistDatabase {
       this.cryptr
     ) as DocRef & Doc<T>
 
-    if (!doc) {
-      return undefined
+    const files: ExtraFiles = {}
+
+    if (doc.extraFile) {
+      const gist = (await this.gistApi(
+        `/gists/${doc.extraFile.id}`,
+        'GET'
+      )) as GistResponse
+
+      if (gist && gist.files && Object.keys(gist.files).length) {
+        Object.keys(gist.files).forEach((key) => {
+          files[key] = {
+            content: gist.files[key].content,
+            id: doc.extraFile.id,
+            url: doc.extraFile.url
+          }
+        })
+      }
     }
+
+    doc.files = files
 
     const ttl = doc.ttl
 
     if (ttl.ttl && GistDatabase.ttlIsExpired(ttl)) {
+      await this.deleteExtraFilesForGist({
+        doc
+      })
       await this.gistApi(`/gists/${foundDocRef.id}`, 'DELETE')
       return undefined
     }
@@ -215,7 +249,9 @@ export class GistDatabase {
       gist,
       id: foundDocRef.id,
       value: doc.value,
-      rev: doc.rev
+      rev: doc.rev,
+      files: doc.files,
+      extraFile: doc.extraFile
     }
   }
 
@@ -236,20 +272,35 @@ export class GistDatabase {
     if (!keys.length) {
       return undefined
     }
+
+    // filter all keys which match the pattern "_${index}.json"
+    const jsonKeys = keys.filter((key) => key.match(/_\d+\.json$/))
+
     let data = {}
-    for (const key of keys) {
+    for (const key of jsonKeys) {
       data = {
         ...data,
         ...GistDatabase.deserialize(files[key].content, type, cryptr)
       }
     }
+
     return data
   }
 
   public static async pack(
     path,
     value,
-    { ttl, createdAt, rev },
+    {
+      ttl,
+      createdAt,
+      rev,
+      extraFile = null
+    }: {
+      createdAt?: number
+      extraFile?: ExtraFile
+      rev?: string
+      ttl?: number
+    },
     type: CompressionType,
     cryptr: Cryptr
   ) {
@@ -259,7 +310,8 @@ export class GistDatabase {
         ttl,
         createdAt
       },
-      rev
+      rev,
+      extraFile
     }
 
     // eslint-disable-next-line no-undef
@@ -358,6 +410,12 @@ export class GistDatabase {
     key: string | string[],
     args: {
       description?: string
+      files?: Record<
+        string,
+        {
+          content: string
+        }
+      >
       rev?: string
       ttl?: number
       value?: T
@@ -385,12 +443,45 @@ export class GistDatabase {
 
     const newRev = nanoid()
 
+    let doc: Doc<T>
+
+    const extraFiles: ExtraFiles = {}
+    let extraFile: ExtraFile
+
+    // Update existing gist
     if (id) {
       if (args.rev) {
-        const doc = await this.get(key)
+        doc = await this.get(key)
         if (doc && doc.rev !== args.rev) {
           throw new Error(GistDatabase.formatRevisionError(doc.rev, args.rev))
         }
+      }
+
+      if (args.files && Object.keys(args.files).length) {
+        if (!doc) {
+          doc = await this.get(key)
+        }
+        const gist = (await this.gistApi(
+          `/gists/${doc.extraFile.id}`,
+          'PATCH',
+          {
+            files: args.files
+          }
+        )) as GistResponse
+
+        extraFile = {
+          id: gist.id,
+          url: gist.url
+        }
+
+        Object.keys(args.files).forEach((key) => {
+          extraFiles[key] = {
+            id: gist.id,
+            url: gist.url,
+            gist,
+            content: gist.files[key].content
+          }
+        })
       }
 
       const files = await GistDatabase.pack(
@@ -399,7 +490,8 @@ export class GistDatabase {
         {
           ttl,
           createdAt: Date.now(),
-          rev: newRev
+          rev: newRev,
+          extraFile
         },
         this.options.compression,
         this.cryptr
@@ -410,13 +502,37 @@ export class GistDatabase {
         files
       })) as GistResponse
     } else {
+      // Create new gist
+
+      if (args.files && Object.keys(args.files).length) {
+        const gist = (await this.gistApi('/gists', 'POST', {
+          public: this.options.public,
+          files: args.files
+        })) as GistResponse
+
+        extraFile = {
+          id: gist.id,
+          url: gist.url
+        }
+
+        Object.keys(args.files).forEach((key) => {
+          extraFiles[key] = {
+            id: gist.id,
+            url: gist.url,
+            gist,
+            content: gist.files[key].content
+          }
+        })
+      }
+
       const files = await GistDatabase.pack(
         path,
         value,
         {
           ttl,
           createdAt: Date.now(),
-          rev: args.rev || GistDatabase.rev()
+          rev: args.rev || GistDatabase.rev(),
+          extraFile
         },
         this.options.compression,
         this.cryptr
@@ -457,7 +573,9 @@ export class GistDatabase {
       value: value as T,
       gist,
       id: gist.id,
-      rev: created && args.rev ? args.rev : newRev
+      rev: created && args.rev ? args.rev : newRev,
+      files: extraFiles,
+      extraFile
     }
   }
 
@@ -474,6 +592,12 @@ export class GistDatabase {
     if (!found) {
       return undefined
     }
+
+    const doc = await this.get(key)
+
+    await this.deleteExtraFilesForGist({
+      doc
+    })
 
     await this.gistApi(`/gists/${found.id}`, 'DELETE')
 
@@ -506,11 +630,35 @@ export class GistDatabase {
 
     await Promise.allSettled(
       Object.keys(database).map(async (key) => {
+        await this.deleteExtraFilesForGist(database[key].id)
         await this.gistApi(`/gists/${database[key].id}`, 'DELETE')
       })
     )
 
     await this.gistApi(`/gists/${this.options.id}`, 'DELETE')
+  }
+
+  private async deleteExtraFilesForGist({
+    id,
+    doc
+  }: {
+    doc?: Doc<any>
+    id?: string
+  }) {
+    let foundDoc: Doc<any>
+    if (id) {
+      foundDoc = await this.get(id)
+    } else {
+      foundDoc = doc
+    }
+    if (Object.keys(foundDoc.files).length) {
+      await Promise.all(
+        Object.keys(foundDoc.files).map((key) => {
+          const file = foundDoc.files[key]
+          return this.gistApi(`/gists/${file.id}`, 'DELETE')
+        })
+      )
+    }
   }
 
   public static get<T = any>(obj: T, path: string[]): T {
