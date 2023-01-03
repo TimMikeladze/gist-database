@@ -6,6 +6,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let index = 0
 
 for (const compressionType of Object.values(CompressionType)) {
+  // for (const compressionType of [CompressionType.none]) {
   describe(`GistDatabase - compression: ${compressionType}`, () => {
     let db: GistDatabase
     beforeAll(async () => {
@@ -33,7 +34,7 @@ for (const compressionType of Object.values(CompressionType)) {
         id: expect.any(String),
         gist: expect.any(Object)
       })
-      expect(await db.get('test_one')).toEqual({
+      expect(await db.get('test_one')).toMatchObject({
         value: {
           name: 'test_one'
         },
@@ -55,12 +56,13 @@ for (const compressionType of Object.values(CompressionType)) {
           name: 'test_two'
         }
       })
-      expect(await db.get('test_two')).toEqual({
+      expect(await db.get('test_two')).toMatchObject({
         value: {
           name: 'test_two'
         },
         id: expect.any(String),
-        gist: expect.any(Object)
+        gist: expect.any(Object),
+        rev: expect.any(String)
       })
       await db.delete('test_two')
       expect(await db.get('test_two')).toBeUndefined()
@@ -96,6 +98,62 @@ for (const compressionType of Object.values(CompressionType)) {
         undefined,
         undefined
       ])
+    })
+
+    it('sets and gets with revs', async () => {
+      const initialRevision = GistDatabase.rev()
+
+      const key = 'revs_tests'
+
+      const res = await db.set(key, {
+        value: {
+          name: key
+        },
+        rev: initialRevision
+      })
+
+      expect(res).toMatchObject({
+        value: {
+          name: key
+        },
+        id: expect.any(String),
+        gist: expect.any(Object),
+        rev: initialRevision
+      })
+
+      const updated = await db.set(key, {
+        value: {
+          name: key
+        }
+      })
+
+      await expect(
+        db.set(key, {
+          value: {
+            name: key
+          },
+          rev: initialRevision
+        })
+      ).rejects.toThrowError()
+
+      await db.set(key, {
+        value: {
+          name: key
+        },
+        rev: updated.rev
+      })
+
+      const found = await db.get(key)
+
+      expect(found.rev).toBeDefined()
+      expect(found.rev).not.toEqual(initialRevision)
+      expect(found.rev).not.toEqual(updated.rev)
+
+      await expect(
+        db.get(key, {
+          rev: initialRevision
+        })
+      ).rejects.toThrowError()
     })
   })
 }

@@ -72,7 +72,7 @@ interface ExampleData {
   foo?: string
 }
 
-const res = await db.set<ExampleData>('key', {
+const original = await db.set<ExampleData>('key', {
   value: {
     hello: 'world'
   }
@@ -86,7 +86,8 @@ const found = await db.get<ExampleData>('key')
       hello: "world"
   },
   id: "xxxxxxxxxxxxxxxxxxx",
-  url: "https://api.github.com/gists/xxxxxxxxxxx"
+  url: "https://api.github.com/gists/xxxxxxxxxxx",
+  rev: "xxxxx"
 }
  **/
 
@@ -105,8 +106,35 @@ const updated = await db.set<ExampleData>('key', {
   },
   id: "xxxxxxxxxxxxxxxxxxx",
   url: "https://api.github.com/gists/xxxxxxxxxxx"
+  rev: "yyyyy",
 }
  **/
+
+// A rev can be used to ensure that the data is not overwritten by another process. If the rev does not match the current rev, the update will fail.
+try {
+  await updated.set<ExampleData>('key', {
+    value: {
+      hello: 'world',
+      foo: 'bar'
+    },
+    rev: original.rev // this will throw an error
+    // rev: Database.rev() // leave field blank or manually generate a new rev
+  })
+} catch (err) {
+  // An error will be thrown due to the rev mismatch
+  console.log(err)
+}
+
+// Trying to fetch an outdated rev will also throw an error
+try {
+  await updated.get<ExampleData>('key', {
+    rev: original.rev // this will throw an error
+    // rev: updated.rev // this will succeed
+  })
+} catch (err) {
+  // An error will be thrown due to the rev mismatch
+  console.log(err)
+}
 
 await db.has('key') // true
 
@@ -158,9 +186,17 @@ When initializing `GistDatabase` you can pass an optional parameter called `encr
 const db = new GistDatabase({
   token: process.env.GIST_TOKEN,
   id: process.env.GIST_ID,
-  encryptionKey: process.env.ENCRYPTION_KEY
+  encryptionKey: process.env.GIST_ENCRYPTION_KEY
 })
 ```
+
+## 🧮 Revisions
+
+Each time a value is set, a new `rev` id is generated using the [nanoid](https://github.com/ai/nanoid) package. This revision is used to ensure that the data is not overwritten by another process. Before data is written the document for the corresponding key will be fetched its revision id checked with one provided. If they do not match the update will fail and an error will be thrown.
+
+By default, revisions are not checked when getting or setting data. To enable revision checking, pass the `rev` parameter to `get` or `set`. Typically, this would be the `rev` value returned from the previous `get` or `set` call for the same key.
+
+This is a dirty implementation of optimistic locking. It is not a perfect solution, but it is a simple way of **trying** to keep data consistent during concurrent writes. If you're looking for consistency guarantees then you should use a proper database solution, not this library.
 
 ## ⚠️ Limitations
 

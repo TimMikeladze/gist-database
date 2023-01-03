@@ -3,6 +3,7 @@ import { getGistApi } from './gistApi'
 import { Blob } from 'buffer'
 import { pack, unpack } from 'msgpackr'
 import Cryptr from 'cryptr'
+import { nanoid } from 'nanoid'
 
 export enum CompressionType {
   // eslint-disable-next-line no-unused-vars
@@ -40,6 +41,7 @@ export type Doc<T = any> = {
     id: string
   }
   id: string
+  rev: string
   value: T
 }
 
@@ -63,6 +65,7 @@ export class GistDatabase {
   public isNewDatabase: boolean
   public initialized: boolean = false
   private readonly cryptr: Cryptr
+  public static ROOT_GIST_NAME = 'database.json'
 
   constructor(options: GistDatabaseOptions) {
     this.options = {
@@ -96,7 +99,7 @@ export class GistDatabase {
       description: options.description,
       public: options.public,
       files: {
-        'database.json': {
+        [GistDatabase.ROOT_GIST_NAME]: {
           content: GistDatabase.serialize({}, options.compression, cryptr)
         }
       }
@@ -130,7 +133,7 @@ export class GistDatabase {
   public async keys(): Promise<string[]> {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content,
+      root.files[GistDatabase.ROOT_GIST_NAME].content,
       this.options.compression,
       this.cryptr
     )
@@ -145,30 +148,37 @@ export class GistDatabase {
     )) as GistResponse
   }
 
-  public async get<T = any>(key: string | string[]): Promise<Doc<T>> {
+  public async get<T = any>(
+    key: string | string[],
+    {
+      rev
+    }: {
+      rev?: string
+    } = {}
+  ): Promise<Doc<T>> {
     const path = Array.isArray(key) ? key : [key]
 
     const root = await this.getRoot()
 
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content,
+      root.files[GistDatabase.ROOT_GIST_NAME].content,
       this.options.compression,
       this.cryptr
     )
 
-    const found: DocRef = GistDatabase.get(database, path)
+    const foundDocRef: DocRef = GistDatabase.get(database, path)
 
-    if (!found) {
+    if (!foundDocRef) {
       return undefined
     }
 
-    if (found.ttl.ttl && GistDatabase.ttlIsExpired(found.ttl)) {
-      await this.gistApi(`/gists/${found.id}`, 'DELETE')
+    if (foundDocRef.ttl.ttl && GistDatabase.ttlIsExpired(foundDocRef.ttl)) {
+      await this.gistApi(`/gists/${foundDocRef.id}`, 'DELETE')
       return undefined
     }
 
     const gist = (await this.gistApi(
-      `/gists/${found.id}`,
+      `/gists/${foundDocRef.id}`,
       'GET'
     )) as GistResponse
 
@@ -180,27 +190,32 @@ export class GistDatabase {
       return undefined
     }
 
-    const data = GistDatabase.unpack(
+    const doc = GistDatabase.unpack(
       gist.files,
       this.options.compression,
       this.cryptr
     ) as DocRef & Doc<T>
 
-    if (!data) {
+    if (!doc) {
       return undefined
     }
 
-    const ttl = data.ttl
+    const ttl = doc.ttl
 
     if (ttl.ttl && GistDatabase.ttlIsExpired(ttl)) {
-      await this.gistApi(`/gists/${found.id}`, 'DELETE')
+      await this.gistApi(`/gists/${foundDocRef.id}`, 'DELETE')
       return undefined
+    }
+
+    if (rev && doc.rev !== rev) {
+      throw new Error(GistDatabase.formatRevisionError(doc.rev, rev))
     }
 
     return {
       gist,
-      id: found.id,
-      value: data.value
+      id: foundDocRef.id,
+      value: doc.value,
+      rev: doc.rev
     }
   }
 
@@ -234,7 +249,7 @@ export class GistDatabase {
   public static async pack(
     path,
     value,
-    { ttl, createdAt },
+    { ttl, createdAt, rev },
     type: CompressionType,
     cryptr: Cryptr
   ) {
@@ -243,7 +258,8 @@ export class GistDatabase {
       ttl: {
         ttl,
         createdAt
-      }
+      },
+      rev
     }
 
     // eslint-disable-next-line no-undef
@@ -342,6 +358,7 @@ export class GistDatabase {
     key: string | string[],
     args: {
       description?: string
+      rev?: string
       ttl?: number
       value?: T
     }
@@ -355,7 +372,7 @@ export class GistDatabase {
     const root = await this.getRoot()
 
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content,
+      root.files[GistDatabase.ROOT_GIST_NAME].content,
       this.options.compression,
       this.cryptr
     )
@@ -364,13 +381,25 @@ export class GistDatabase {
 
     let gist: GistResponse
 
+    let created = false
+
+    const newRev = nanoid()
+
     if (id) {
+      if (args.rev) {
+        const doc = await this.get(key)
+        if (doc && doc.rev !== args.rev) {
+          throw new Error(GistDatabase.formatRevisionError(doc.rev, args.rev))
+        }
+      }
+
       const files = await GistDatabase.pack(
         path,
         value,
         {
           ttl,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          rev: newRev
         },
         this.options.compression,
         this.cryptr
@@ -386,7 +415,8 @@ export class GistDatabase {
         value,
         {
           ttl,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          rev: args.rev || GistDatabase.rev()
         },
         this.options.compression,
         this.cryptr
@@ -410,7 +440,7 @@ export class GistDatabase {
 
       await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
         files: {
-          'database.json': {
+          [GistDatabase.ROOT_GIST_NAME]: {
             content: GistDatabase.serialize(
               database,
               this.options.compression,
@@ -419,12 +449,15 @@ export class GistDatabase {
           }
         }
       })
+
+      created = true
     }
 
     return {
       value: value as T,
       gist,
-      id: gist.id
+      id: gist.id,
+      rev: created && args.rev ? args.rev : newRev
     }
   }
 
@@ -432,7 +465,7 @@ export class GistDatabase {
     const path = Array.isArray(key) ? key : [key]
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content,
+      root.files[GistDatabase.ROOT_GIST_NAME].content,
       this.options.compression,
       this.cryptr
     )
@@ -448,7 +481,7 @@ export class GistDatabase {
 
     await this.gistApi(`/gists/${this.options.id}`, 'PATCH', {
       files: {
-        'database.json': {
+        [GistDatabase.ROOT_GIST_NAME]: {
           content: GistDatabase.serialize(
             newDatabase,
             this.options.compression,
@@ -466,7 +499,7 @@ export class GistDatabase {
   public async destroy() {
     const root = await this.getRoot()
     const database = GistDatabase.deserialize(
-      root.files['database.json'].content,
+      root.files[GistDatabase.ROOT_GIST_NAME].content,
       this.options.compression,
       this.cryptr
     )
@@ -535,5 +568,13 @@ export class GistDatabase {
     } else {
       return JSON.parse(cryptr ? cryptr.decrypt(value) : value)
     }
+  }
+
+  public static rev() {
+    return nanoid()
+  }
+
+  public static formatRevisionError(expected: string, received: string) {
+    return `rev mismatch, expected ${expected} but was received ${received}`
   }
 }
