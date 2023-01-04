@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { GistDatabase } from './GistDatabase'
 
 if (!process.env.GIST_TOKEN) {
