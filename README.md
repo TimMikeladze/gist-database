@@ -20,6 +20,10 @@ This is a perfect solution for low write / high read scenarios when serving stat
 
 > 👋 Hello there! Follow me [@linesofcodedev](https://twitter.com/linesofcodedev) or visit [linesofcode.dev](https://linesofcode.dev) for more cool projects like this one.
 
+## ⚖️‍ Acceptable use policy
+
+When using this library you **must comply** with Github's [acceptable use policy](https://docs.github.com/en/github/site-policy/github-acceptable-use-policies). Do not use this library to store data that violates Github's guidelines, violates laws, is malicious, unethical, or harmful to others.
+
 ## 🏃 Getting started
 
 In order to communicate with the Gist API you need to create a [personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with the `gist` scope or use the [beta tokens](https://github.com/settings/tokens?type=beta) with the `gist read/write scope`.
