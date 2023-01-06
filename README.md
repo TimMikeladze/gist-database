@@ -32,30 +32,41 @@ Save this token somewhere safe, you will need it to authenticate with the Gist A
 
 Now let's create a new database. The empty database will be created as single gist containing a single file called `database.json` with an empty JSON object: `{}`.
 
-This package comes with a cli command to help you get started.
-
-In your terminal run the following command:
+This package comes with a cli tool to help you perform common database operations.
 
 ```console
-GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js
+Usage: gist-database [options]
 
-# or for a public gist
-GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js public
+Transform gist into a key/value datastore.
 
-# or for a public gist with a description
-GIST_TOKEN="xxxxxxxx" node node_modules/gist-database/dist/cli.modern.js public "My awesome database"
+Options:
+  -c --create                      Create a new gist database.
+  -p --public                      Make the gist public. (default: false)
+  -de --description <description>  Description of the gist. (default: "")
+  -des --destroy <destroy>         Destroy a gist database. Provide the gist id of the database.
+  -t --token <token>               Gist token. Required for all operations.
+  -h, --help                       display help for command
+```
+
+To create a new database run the following command in your terminal:
+
+```console
+npx gist-database create --token <your-token>
 ```
 
 If successful, you should see output similar to:
 
 ```json
 {
-  "id": "xxxxxxxxxxxxxxxxxxx",
-  "url": "https://api.github.com/gists/xxxxxxxxxxx"
+  "id": "xxxxxxxxxxxx",
+  "rawUrl": "https://api.github.com/gists/xxxxxxxxxxxx",
+  "url": "https://gist.github.com/xxxxxxxxxxxx",
+  "public": false,
+  "description": ""
 }
 ```
 
-This is the gist containing your main database file. Save the `id` somewhere safe. You will need it to initialize the database.
+This is the gist containing your main database file. Save the `id` somewhere safe. You will need it to initialize your database instance.
 
 ## 📖 API
 
