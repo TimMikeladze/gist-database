@@ -1,6 +1,6 @@
 {
   "name": "gist-database",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Transform gist into your personal key/value data store. Pair this with Next.js and incremental static regeneration to add dynamic content to your static site. Built with TypeScript.",
   "author": "Tim Mikeladze <tim.mikeladze@gmail.com>",
   "keywords": [
