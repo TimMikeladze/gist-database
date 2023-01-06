@@ -51,7 +51,7 @@ Options:
 To create a new database run the following command in your terminal:
 
 ```console
-npx gist-database create --token <your-token>
+npx gist-database -c -t <your-token>
 ```
 
 If successful, you should see output similar to:
