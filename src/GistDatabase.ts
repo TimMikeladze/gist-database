@@ -124,7 +124,10 @@ export class GistDatabase {
       this.options.id = gist.id
       this.isNewDatabase = true
     } else {
-      gist = await this.getRoot()
+      const gist = (await this.gistApi(
+        `/gists/${this.options.id}`,
+        'GET'
+      )) as GistResponse
       if (!gist) {
         throw new Error('gist not found')
       }

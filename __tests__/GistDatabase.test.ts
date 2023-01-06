@@ -6,7 +6,31 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let index = 0
 
 for (const compressionType of Object.values(CompressionType)) {
-  // for (const compressionType of [CompressionType.none]) {
+  it('GistDatabase - initialize with existing gist id', async () => {
+    const db = new GistDatabase({
+      token: process.env.GIST_TOKEN
+    })
+
+    await db.set('test', {
+      value: {
+        name: 'one'
+      }
+    })
+
+    expect(db.getDatabaseId()).toBeDefined()
+
+    const db2 = new GistDatabase({
+      token: process.env.GIST_TOKEN,
+      id: db.getDatabaseId()
+    })
+
+    await db2.set('test', {
+      value: {
+        name: 'two'
+      }
+    })
+  })
+
   describe(`GistDatabase - compression: ${compressionType}`, () => {
     let db: GistDatabase
     beforeAll(async () => {
