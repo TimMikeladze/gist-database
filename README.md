@@ -153,6 +153,16 @@ try {
   console.log(err)
 }
 
+// It's possible to pass arrays as key names. This is especially useful if you want to scope your data to a specific user or group. Internally all array keys will be joined with a `.` character.
+
+await db.set<ExampleData>(['user', 'testUserId'], {
+  value: {
+    displayName: 'Test User'
+  }
+})
+
+await db.get<ExampleData>(['user', 'testUserId'])
+
 await db.has('key') // true
 
 await db.keys() // ['key']

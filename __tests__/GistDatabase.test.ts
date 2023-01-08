@@ -6,6 +6,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 let index = 0
 
 for (const compressionType of Object.values(CompressionType)) {
+  // for (const compressionType of [CompressionType.msgpack]) {
   it('GistDatabase - initialize with existing gist id', async () => {
     const db = new GistDatabase({
       token: process.env.GIST_TOKEN
@@ -203,7 +204,45 @@ it('get and set and del static util functions', () => {
   expect(GistDatabase.get(res, ['a'])).toBe(2)
 })
 
-describe('GistDatabase - advanced scenario', () => {
+describe('GistDatabase - works with nested keys', () => {
+  let db: GistDatabase
+  beforeAll(async () => {
+    db = new GistDatabase({
+      token: process.env.GIST_TOKEN,
+      compression: CompressionType.pretty
+    })
+  })
+  afterAll(async () => {
+    await db.destroy()
+  })
+  it('writes and reads a nested key', async () => {
+    await db.set(['parent'], {
+      value: {
+        name: 'parent'
+      }
+    })
+
+    await db.set(['parent', 'child'], {
+      value: {
+        name: 'child'
+      }
+    })
+
+    expect(await db.get(['parent'])).toMatchObject({
+      value: {
+        name: 'parent'
+      }
+    })
+
+    expect(await db.get(['parent', 'child'])).toMatchObject({
+      value: {
+        name: 'child'
+      }
+    })
+  })
+})
+
+describe('GistDatabase - advanced scenario 1', () => {
   let db: GistDatabase
   beforeAll(async () => {
     db = new GistDatabase({
@@ -299,7 +338,7 @@ describe('GistDatabase - advanced scenario', () => {
   })
 })
 
-describe('GistDatabase - advanced scenario', () => {
+describe('GistDatabase - advanced scenario 2', () => {
   let db: GistDatabase
   beforeAll(async () => {
     db = new GistDatabase({
