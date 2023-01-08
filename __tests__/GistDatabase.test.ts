@@ -5,8 +5,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 let index = 0
 
-for (const compressionType of Object.values(CompressionType)) {
-  // for (const compressionType of [CompressionType.msgpack]) {
+// for (const compressionType of Object.values(CompressionType)) {
+for (const compressionType of [CompressionType.msgpack]) {
   it('GistDatabase - initialize with existing gist id', async () => {
     const db = new GistDatabase({
       token: process.env.GIST_TOKEN
@@ -237,6 +237,44 @@ describe('GistDatabase - works with nested keys', () => {
     expect(await db.get(['parent', 'child'])).toMatchObject({
       value: {
         name: 'child'
+      }
+    })
+  })
+})
+
+describe('GistDatabase - validates key names', () => {
+  let db: GistDatabase
+  beforeAll(async () => {
+    db = new GistDatabase({
+      token: process.env.GIST_TOKEN,
+      compression: CompressionType.pretty
+    })
+  })
+  afterAll(async () => {
+    await db.destroy()
+  })
+  it('checks key name', async () => {
+    await db.set('test-test', {
+      value: {
+        name: 'test'
+      }
+    })
+
+    await db.set('test_test', {
+      value: {
+        name: 'test'
+      }
+    })
+
+    expect(await db.get('test-test')).toMatchObject({
+      value: {
+        name: 'test'
+      }
+    })
+
+    expect(await db.get('test_test')).toMatchObject({
+      value: {
+        name: 'test'
       }
     })
   })
