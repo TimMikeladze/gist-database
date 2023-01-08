@@ -71,13 +71,15 @@ This is the gist containing your main database file. Save the `id` somewhere saf
 ## 📖 API
 
 ```ts
-import { GistDatabase } from 'gist-database'
+import { GistDatabase, CompressionType } from 'gist-database'
 
 // Initialize the database
 
 const db = new GistDatabase({
   token: process.env.GIST_TOKEN,
-  id: process.env.GIST_ID
+  id: process.env.GIST_ID,
+  encryptionKey: process.env.GIST_ENCRYPTION_KEY, // Optional - Encrypt your data
+  compression: CompressionType.pretty // Optional - Compress your data
 })
 
 // Before we begin let's define an optional Tyescript interface to add some type-safety to the shape of our data. Tip: combine this with Zod for even more safety around your data and business logic.
