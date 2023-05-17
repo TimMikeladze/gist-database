@@ -18,7 +18,7 @@ This is where `gist-database` comes in handy, by leveraging the power of the [gi
 
 This is a perfect solution for low write / high read scenarios when serving static site content with [Next.js](https://nextjs.org/) and using [Incremental Static Regeneration](https://nextjs.org/docs/basic-features/data-fetching/incremental-static-regeneration) to keep your cached content fresh.
 
-> 👋 Hello there! Follow me [@linesofcodedev](https://twitter.com/linesofcodedev) or visit [linesofcode.dev](https://linesofcode.dev) for more cool projects like this one.
+> 👋 Hello there! Follow me [@linesofcode](https://twitter.com/linesofcode) or visit [linesofcode.dev](https://linesofcode.dev) for more cool projects like this one.
 
 ## ⚖️‍ Acceptable use policy
 
